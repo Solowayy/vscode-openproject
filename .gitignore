@@ -1,0 +1,14 @@
+# Node
+node_modules/
+dist/
+npm-debug.log
+yarn-error.log
+
+# TypeScript
+*.tsbuildinfo
+
+# VSCode
+.vscode/
+
+# Env files
+.env
