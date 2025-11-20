@@ -58,7 +58,6 @@ class MyTreeDataProvider {
     }
     getChildren(element) {
         if (!element) {
-            // Головні елементи
             return Promise.resolve([
                 new MyTreeItem('Test 1', vscode.TreeItemCollapsibleState.Collapsed, [
                     new MyTreeItem('SubTest 1.1', vscode.TreeItemCollapsibleState.None),

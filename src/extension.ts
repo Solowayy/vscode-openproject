@@ -3,7 +3,7 @@ import { MyTreeDataProvider } from './treeDataProvider';
 
 export function activate(context: vscode.ExtensionContext) {
 
-	console.log('Congratulations, your extension "vscode-openproject" is now active!');
+	
 
 	const treeDataProvider = new MyTreeDataProvider();
 	const treeView = vscode.window.createTreeView('myTreeView', {

@@ -38,7 +38,6 @@ exports.deactivate = deactivate;
 const vscode = __importStar(require("vscode"));
 const treeDataProvider_1 = require("./treeDataProvider");
 function activate(context) {
-    console.log('Congratulations, your extension "vscode-openproject" is now active!');
     const treeDataProvider = new treeDataProvider_1.MyTreeDataProvider();
     const treeView = vscode.window.createTreeView('myTreeView', {
         treeDataProvider: treeDataProvider
