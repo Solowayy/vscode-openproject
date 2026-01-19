@@ -4,7 +4,7 @@
   "description": "",
   "version": "0.0.1",
   "engines": {
-    "vscode": "^1.106.1"
+    "vscode": "^1.85.0"
   },
   "categories": [
     "Other"
@@ -12,26 +12,77 @@
   "activationEvents": [],
   "main": "./out/extension.js",
   "contributes": {
-    "commands": [
-      {
-        "command": "vscode-openproject.helloWorld",
-        "title": "Hello World"
+    "configuration": {
+      "title": "OpenProject",
+      "properties": {
+        "openproject.url": {
+          "type": "string",
+          "default": "",
+          "description": "The URL of your OpenProject instance"
+        },
+        "openproject.apiKey": {
+          "type": "string",
+          "default": "",
+          "description": "API Key for OpenProject"
+        }
       }
-    ],
+    },
     "viewsContainers": {
       "activitybar": [
         {
-          "id": "mySidebar",
-          "title": "My Projects",
+          "id": "openproject-explorer",
+          "title": "OpenProject",
           "icon": "resources/icon.svg"
         }
       ]
     },
     "views": {
-      "mySidebar": [
+      "openproject-explorer": [
         {
-          "id": "myTreeView",
-          "name": "Project Folders"
+          "id": "openproject.projectsView",
+          "name": "Projects"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "openproject.configure",
+        "title": "Configure OpenProject",
+        "icon": "$(settings-gear)"
+      },
+      {
+        "command": "openproject.refresh",
+        "title": "Refresh",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "openproject.openWorkPackage",
+        "title": "Open Work Package"
+      },
+      {
+        "command": "openproject.createWorkPackage",
+        "title": "Create Work Package",
+        "icon": "$(add)"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "openproject.refresh",
+          "when": "view == openproject.projectsView",
+          "group": "navigation@1"
+        },
+        {
+          "command": "openproject.configure",
+          "when": "view == openproject.projectsView",
+          "group": "navigation@2"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "openproject.createWorkPackage",
+          "when": "view == openproject.projectsView && viewItem == project",
+          "group": "inline"
         }
       ]
     }
@@ -41,21 +92,18 @@
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
     "pretest": "npm run compile && npm run lint",
-    "lint": "eslint src",
-    "test": "vscode-test"
+    "lint": "eslint src --ext ts",
+    "test": "node ./out/test/runTest.js"
   },
   "devDependencies": {
-    "@types/mocha": "^10.0.10",
-    "@types/node": "22.x",
-    "@types/vscode": "^1.106.1",
-    "@vscode/test-cli": "^0.0.12",
-    "@vscode/test-electron": "^2.5.2",
-    "eslint": "^9.39.1",
-    "typescript": "^5.9.3",
-    "typescript-eslint": "^8.46.3"
+    "@types/node": "^20.x",
+    "@types/vscode": "^1.85.0",
+    "@typescript-eslint/eslint-plugin": "^6.x",
+    "@typescript-eslint/parser": "^6.x",
+    "eslint": "^8.x",
+    "typescript": "^5.3.0"
   },
   "dependencies": {
-    "axios": "^1.13.2",
-    "vscode": "^1.1.37"
+    "axios": "^1.6.0"
   }
 }
