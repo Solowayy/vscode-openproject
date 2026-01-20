@@ -124,7 +124,7 @@ class ApiClient {
         return true;
     }
     async updateWorkPackage(workPackageId, data) {
-        // TODO: Implement PATCH request to /api/v3/work_packages/{id}
+        // TODO:
         vscode.window.showInformationMessage(`Updating work package #${workPackageId}...`);
         console.log('Update data:', data);
         return true;

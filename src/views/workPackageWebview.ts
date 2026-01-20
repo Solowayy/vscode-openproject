@@ -164,7 +164,6 @@ export class WorkPackageWebviewManager {
             <div class="label">Type</div>
             <select id="select-type" class="form-control">
                 <!-- Stub Data -->
-                ${getOption(typeName, typeName)}
                 ${getOption("Task", typeName)}
                 ${getOption("Milestone", typeName)}
                 ${getOption("Summary task", typeName)}
@@ -173,7 +172,6 @@ export class WorkPackageWebviewManager {
             <div class="label">Status</div>
             <select id="select-status" class="form-control">
                 <!-- Stub Data -->
-                ${getOption(statusName, statusName)}
                 ${getOption("New", statusName)}
                 ${getOption("To be scheduled", statusName)}
                 ${getOption("Scheduled", statusName)}
@@ -186,7 +184,6 @@ export class WorkPackageWebviewManager {
             <div class="label">Priority</div>
             <select id="select-priority" class="form-control">
                  <!-- Stub Data -->
-                 ${getOption(priorityName, priorityName)}
                  ${getOption("Low", priorityName)}
                  ${getOption("Normal", priorityName)}
                  ${getOption("High", priorityName)}

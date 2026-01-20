@@ -40,88 +40,88 @@ const workPackageTreeProvider_1 = require("./providers/workPackageTreeProvider")
 const apiClient_1 = require("./api/apiClient");
 const workPackageWebview_1 = require("./views/workPackageWebview");
 async function activate(context) {
-    console.log('OpenProject extension activated');
+    console.log("OpenProject extension activated");
     const projectTreeProvider = new workPackageTreeProvider_1.ProjectTreeProvider();
-    const treeView = vscode.window.createTreeView('openproject.projectsView', {
+    const treeView = vscode.window.createTreeView("openproject.projectsView", {
         treeDataProvider: projectTreeProvider,
-        showCollapseAll: true
+        showCollapseAll: true,
     });
     context.subscriptions.push(treeView);
     // Connection config
-    const configureCommand = vscode.commands.registerCommand('openproject.configure', async () => {
+    const configureCommand = vscode.commands.registerCommand("openproject.configure", async () => {
         const url = await vscode.window.showInputBox({
-            prompt: 'Enter your OpenProject URL',
-            placeHolder: 'https://your-openproject.com',
-            value: vscode.workspace.getConfiguration('openproject').get('url'),
+            prompt: "Enter your OpenProject URL",
+            placeHolder: "https://your-openproject.com",
+            value: vscode.workspace.getConfiguration("openproject").get("url"),
             validateInput: (value) => {
                 if (!value) {
-                    return 'URL cannot be empty';
+                    return "URL cannot be empty";
                 }
-                if (!value.startsWith('http')) {
-                    return 'URL must start with http or https';
+                if (!value.startsWith("http")) {
+                    return "URL must start with http or https";
                 }
                 return null;
-            }
+            },
         });
         if (!url) {
             return;
         }
         const apiKey = await vscode.window.showInputBox({
-            prompt: 'Enter your API Key',
+            prompt: "Enter your API Key",
             password: true,
-            value: vscode.workspace.getConfiguration('openproject').get('apiKey'),
+            value: vscode.workspace.getConfiguration("openproject").get("apiKey"),
             validateInput: (value) => {
                 if (!value) {
-                    return 'API Key cannot be empty';
+                    return "API Key cannot be empty";
                 }
                 return null;
-            }
+            },
         });
         if (!apiKey) {
             return;
         }
         // Save config
-        const config = vscode.workspace.getConfiguration('openproject');
-        await config.update('url', url, vscode.ConfigurationTarget.Global);
-        await config.update('apiKey', apiKey, vscode.ConfigurationTarget.Global);
+        const config = vscode.workspace.getConfiguration("openproject");
+        await config.update("url", url, vscode.ConfigurationTarget.Global);
+        await config.update("apiKey", apiKey, vscode.ConfigurationTarget.Global);
         // Init client
         const success = await apiClient_1.apiClient.initialize();
         if (success) {
-            vscode.window.showInformationMessage('✅ OpenProject configured successfully!');
+            vscode.window.showInformationMessage("✅ OpenProject configured successfully!");
             projectTreeProvider.refresh();
         }
         else {
-            vscode.window.showErrorMessage('❌ Failed to connect to OpenProject');
+            vscode.window.showErrorMessage("❌ Failed to connect to OpenProject");
         }
     });
     // Refresh Tree
-    const refreshCommand = vscode.commands.registerCommand('openproject.refresh', () => {
-        vscode.window.showInformationMessage('🔄 Refreshing data...');
+    const refreshCommand = vscode.commands.registerCommand("openproject.refresh", () => {
+        vscode.window.showInformationMessage("🔄 Refreshing data...");
         projectTreeProvider.refresh();
     });
     // Open Work Package
-    const openWorkPackageCommand = vscode.commands.registerCommand('openproject.openWorkPackage', async (workPackage) => {
+    const openWorkPackageCommand = vscode.commands.registerCommand("openproject.openWorkPackage", async (workPackage) => {
         const fullWorkPackage = await apiClient_1.apiClient.getWorkPackage(workPackage.id);
         if (!fullWorkPackage) {
-            vscode.window.showErrorMessage('Failed to load work package');
+            vscode.window.showErrorMessage("Failed to load work package");
             return;
         }
         workPackageWebview_1.WorkPackageWebviewManager.createOrShow(context.extensionUri, fullWorkPackage);
     });
-    const createWorkPackageCommand = vscode.commands.registerCommand('openproject.createWorkPackage', async (treeItem) => {
+    const createWorkPackageCommand = vscode.commands.registerCommand("openproject.createWorkPackage", async (treeItem) => {
         let project = treeItem?.project;
         // 1. Determine the Project
         if (!project) {
             const projects = await apiClient_1.apiClient.getProjects();
             if (projects.length === 0) {
-                vscode.window.showWarningMessage('No projects available');
+                vscode.window.showWarningMessage("No projects available");
                 return;
             }
-            const selectedProject = await vscode.window.showQuickPick(projects.map(p => ({
+            const selectedProject = await vscode.window.showQuickPick(projects.map((p) => ({
                 label: p.name,
                 description: p.identifier,
-                project: p
-            })), { placeHolder: 'Select a project' });
+                project: p,
+            })), { placeHolder: "Select a project" });
             if (!selectedProject) {
                 return; // User cancelled
             }
@@ -129,30 +129,38 @@ async function activate(context) {
         }
         // 2. Determine the Type, Status, Priority
         // TODO: make mathod to get list of Type, Status, Priority
-        const type = await vscode.window.showQuickPick(['Task', 'Milestone', 'Summary task'], { placeHolder: 'Select a type' });
-        const status = await vscode.window.showQuickPick(['New', 'To be scheduled', 'Scheduled', 'In Progress', 'Closed', 'On hold', 'Rejected'], { placeHolder: 'Select a status' });
-        const priority = await vscode.window.showQuickPick(['Low', 'Normal', 'High', 'Immediate'], { placeHolder: 'Select a priority' });
+        const type = await vscode.window.showQuickPick(["Task", "Milestone", "Summary task"], { placeHolder: "Select a type" });
+        const status = await vscode.window.showQuickPick([
+            "New",
+            "To be scheduled",
+            "Scheduled",
+            "In Progress",
+            "Closed",
+            "On hold",
+            "Rejected",
+        ], { placeHolder: "Select a status" });
+        const priority = await vscode.window.showQuickPick(["Low", "Normal", "High", "Immediate"], { placeHolder: "Select a priority" });
         if (!type || !status || !priority) {
             return;
         }
         // 3. Get Subject
         const subject = await vscode.window.showInputBox({
-            prompt: 'Enter work package subject',
-            placeHolder: 'Task title...',
+            prompt: "Enter work package subject",
+            placeHolder: "Task title...",
             validateInput: (value) => {
                 if (!value || value.trim().length === 0) {
-                    return 'Subject cannot be empty';
+                    return "Subject cannot be empty";
                 }
                 return null;
-            }
+            },
         });
         if (!subject) {
             return;
         }
         // 4. Get Description (Optional)
         const description = await vscode.window.showInputBox({
-            prompt: 'Enter description (optional)',
-            placeHolder: 'Task description...'
+            prompt: "Enter description (optional)",
+            placeHolder: "Task description...",
         });
         // 5. Call API
         const created = await apiClient_1.apiClient.createWorkPackage({
@@ -161,7 +169,7 @@ async function activate(context) {
             status: status,
             priority: priority,
             subject: subject.trim(),
-            description: description?.trim()
+            description: description?.trim(),
         });
         // 6. Feedback & Refresh
         if (created) {
@@ -169,12 +177,12 @@ async function activate(context) {
             projectTreeProvider.refresh();
         }
         else {
-            vscode.window.showErrorMessage('❌ Failed to create work package');
+            vscode.window.showErrorMessage("❌ Failed to create work package");
         }
     });
-    const updateWorkPackageCommand = vscode.commands.registerCommand('openproject.updateWorkPackage', async (workPackageId, updateData) => {
+    const updateWorkPackageCommand = vscode.commands.registerCommand("openproject.updateWorkPackage", async (workPackageId, updateData) => {
         if (!workPackageId) {
-            vscode.window.showErrorMessage('Work package ID is required');
+            vscode.window.showErrorMessage("Work package ID is required");
             return;
         }
         // Call API to update work package
@@ -192,9 +200,9 @@ async function activate(context) {
     });
     // Register all commands
     context.subscriptions.push(configureCommand, refreshCommand, openWorkPackageCommand, createWorkPackageCommand, updateWorkPackageCommand);
-    const config = vscode.workspace.getConfiguration('openproject');
-    if (config.get('url') && config.get('apiKey')) {
-        apiClient_1.apiClient.initialize().then(success => {
+    const config = vscode.workspace.getConfiguration("openproject");
+    if (config.get("url") && config.get("apiKey")) {
+        apiClient_1.apiClient.initialize().then((success) => {
             if (success) {
                 projectTreeProvider.refresh();
             }
@@ -202,6 +210,6 @@ async function activate(context) {
     }
 }
 function deactivate() {
-    console.log('OpenProject extension deactivated');
+    console.log("OpenProject extension deactivated");
 }
 //# sourceMappingURL=extension.js.map
