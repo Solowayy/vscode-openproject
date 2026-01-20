@@ -22,6 +22,12 @@
         "reveal": "never"
       },
       "problemMatcher": "$tsc-watch"
+    },
+    {
+      "type": "Live Preview",
+      "workspacePath": "c:\\Papka_s_papkami\\study\\2Inf\\Rocnikovy_Proekt\\vscode-openproject",
+      "problemMatcher": [],
+      "label": "Live Preview: Run Server"
     }
   ]
 }

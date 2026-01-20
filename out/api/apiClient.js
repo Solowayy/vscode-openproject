@@ -1,114 +1,124 @@
-import axios from "axios";
-import * as vscode from 'vscode';
-import {
-    OpenProjectConfig,
-    CollectionResponse,
-    Project,
-    WorkPackage,
-    Status,
-    Type,
-    User
-} from './types';
-
-export class ApiClient {
-    private client: Axios.AxiosInstance;
-    private config: OpenProjectConfig | null = null;
-
+"use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.apiClient = exports.ApiClient = void 0;
+const axios_1 = __importDefault(require("axios"));
+const vscode = __importStar(require("vscode"));
+class ApiClient {
     constructor() {
-        this.client = axios.create({
+        this.config = null;
+        this.client = axios_1.default.create({
             headers: {
                 'Content-Type': 'application/json'
             }
         });
     }
-
-    public async initialize(): Promise<boolean> {
+    async initialize() {
         const config = vscode.workspace.getConfiguration('openproject');
-        const url = config.get<string>('url');
-        const apiKey = config.get<string>('apiKey');
-
+        const url = config.get('url');
+        const apiKey = config.get('apiKey');
         if (!url || !apiKey) {
             vscode.window.showErrorMessage('URL or API key fail');
             return false;
         }
-
         this.config = { url, apiKey };
         this.client.defaults.baseURL = url;
         this.client.defaults.headers.common['Authorization'] = `Basic ${Buffer.from(`apikey:${apiKey}`).toString('base64')}`;
-
         return await this.testConnection();
     }
-
-    public async testConnection(): Promise<boolean> {
+    async testConnection() {
         try {
             await this.client.get('/api/v3');
             return true;
-        } catch (exception) {
+        }
+        catch (exception) {
             vscode.window.showErrorMessage('Connection failed');
             return false;
         }
     }
-
-    public isConfigured(): boolean {
+    isConfigured() {
         return this.config !== null;
     }
-
-    public async getProjects(parentProjectId?: number): Promise<Project[]> {
+    async getProjects(parentProjectId) {
         try {
-            let filters: any[] = [];
-
+            let filters = [];
             if (parentProjectId) {
                 filters.push({ "parent": { "operator": "=", "values": [parentProjectId.toString()] } });
-            } else {
+            }
+            else {
                 filters.push({ "parent": { "operator": "!*", "values": [] } });
             }
-
             const url = `/api/v3/projects?filters=${encodeURIComponent(JSON.stringify(filters))}`;
-
-            const response = await this.client.get<CollectionResponse<Project>>(url);
+            const response = await this.client.get(url);
             return response.data._embedded.elements;
-        } catch (exception: any) {
+        }
+        catch (exception) {
             console.error('Status:', exception.response?.status);
             console.error('Body:', JSON.stringify(exception.response?.data));
             return [];
         }
     }
-
-    public async getWorkPackages(projectId: number): Promise<WorkPackage[]> {
+    async getWorkPackages(projectId) {
         try {
             const filters = JSON.stringify([
                 { "project": { "operator": "=", "values": [projectId.toString()] } }
             ]);
-
             const url = `/api/v3/work_packages?pageSize=500&filters=${encodeURIComponent(filters)}`;
-
-            const response = await this.client.get<CollectionResponse<WorkPackage>>(url);
-
+            const response = await this.client.get(url);
             return response.data._embedded.elements;
-        } catch (exception: any) {
+        }
+        catch (exception) {
             console.error('Failed to read packages');
             console.error('Status:', exception.response?.status);
             console.error('Body:', JSON.stringify(exception.response?.data));
             return [];
         }
     }
-
-    public async getWorkPackage(id: number): Promise<WorkPackage | null> {
+    async getWorkPackage(id) {
         try {
-            const response = await this.client.get<WorkPackage>(`api/v3/work_packages/${id}`);
+            const response = await this.client.get(`api/v3/work_packages/${id}`);
             return response.data;
-        } catch (exception) {
+        }
+        catch (exception) {
             return null;
         }
     }
-
-    public async createWorkPackage(data: {
-        projectId: number;
-        subject: string;
-        description?: string;
-        typeId?: number;
-        statusId?: number;
-    }): Promise<WorkPackage | null> {
+    async createWorkPackage(data) {
         try {
             const payload = {
                 subject: data.subject,
@@ -132,54 +142,55 @@ export class ApiClient {
                     })
                 }
             };
-
-            const response = await this.client.post<WorkPackage>('/api/v3/work_packages', payload);
+            const response = await this.client.post('/api/v3/work_packages', payload);
             return response.data;
-        } catch (error) {
+        }
+        catch (error) {
             console.error('Error creating work package:', error);
             return null;
         }
     }
-
-    public async updateWorkPackage(id: number, data: Partial<WorkPackage>): Promise<WorkPackage | null> {
+    async updateWorkPackage(id, data) {
         try {
-            const response = await this.client.patch<WorkPackage>(`/api/v3/work_packages/${id}`, data);
+            const response = await this.client.patch(`/api/v3/work_packages/${id}`, data);
             return response.data;
-        } catch (error) {
+        }
+        catch (error) {
             console.error('Error updating work package:', error);
             return null;
         }
     }
-
-    public async getStatuses(): Promise<Status[]> {
+    async getStatuses() {
         try {
-            const response = await this.client.get<CollectionResponse<Status>>('/api/v3/statuses');
+            const response = await this.client.get('/api/v3/statuses');
             return response.data._embedded.elements;
-        } catch (error) {
+        }
+        catch (error) {
             console.error('Error fetching statuses:', error);
             return [];
         }
     }
-
-    public async getTypes(): Promise<Type[]> {
+    async getTypes() {
         try {
-            const response = await this.client.get<CollectionResponse<Type>>('/api/v3/types');
+            const response = await this.client.get('/api/v3/types');
             return response.data._embedded.elements;
-        } catch (error) {
+        }
+        catch (error) {
             console.error('Error fetching types:', error);
             return [];
         }
     }
-
-    public async getCurrentUser(): Promise<User | null> {
+    async getCurrentUser() {
         try {
-            const response = await this.client.get<User>('/api/v3/users/me');
+            const response = await this.client.get('/api/v3/users/me');
             return response.data;
-        } catch (error) {
+        }
+        catch (error) {
             console.error('Error fetching user:', error);
             return null;
         }
     }
 }
-
-export const apiClient = new ApiClient();
+exports.ApiClient = ApiClient;
+exports.apiClient = new ApiClient();
+//# sourceMappingURL=apiClient.js.map

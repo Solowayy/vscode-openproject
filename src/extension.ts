@@ -1,11 +1,7 @@
-import * as vscode from "vscode";
-import {
-    ProjectTreeProvider,
-    ProjectTreeItem,
-} from "./providers/workPackageTreeProvider";
-import { openProjectClient } from "./api/apiClient";
-import { WorkPackage, Project } from "./api/types";
-import { WorkPackageWebviewManager } from "./views/workPackageWebview";
+import * as vscode from 'vscode';
+import { ProjectTreeProvider, ProjectTreeItem } from './providers/workPackageTreeProvider';
+import { apiClient } from './api/apiClient';
+import { WorkPackage, Project } from './api/types';
 
 export async function activate(context: vscode.ExtensionContext) {
     console.log("OpenProject extension activated");
@@ -17,6 +13,7 @@ export async function activate(context: vscode.ExtensionContext) {
         showCollapseAll: true,
     });
 
+    context.subscriptions.push(treeView);
     context.subscriptions.push(treeView);
 
     await projectTreeProvider.initialize();
@@ -91,7 +88,7 @@ export async function activate(context: vscode.ExtensionContext) {
     const openWorkPackageCommand = vscode.commands.registerCommand(
         "openproject.openWorkPackage",
         async (workPackage: WorkPackage) => {
-            const fullWorkPackage = await openProjectClient.getWorkPackage(
+            const fullWorkPackage = await apiClient.getWorkPackage(
                 workPackage.id
             );
 
@@ -112,7 +109,7 @@ export async function activate(context: vscode.ExtensionContext) {
         async (treeItem?: ProjectTreeItem) => {
             let project: Project | undefined = treeItem?.project;
             if (!project) {
-                const projects = await openProjectClient.getProjects();
+                const projects = await apiClient.getProjects();
 
                 if (projects.length === 0) {
                     vscode.window.showWarningMessage("No projects available");
@@ -156,7 +153,7 @@ export async function activate(context: vscode.ExtensionContext) {
             });
 
             // Create work package
-            const created = await openProjectClient.createWorkPackage({
+            const created = await apiClient.createWorkPackage({
                 projectId: project.id,
                 subject: subject.trim(),
                 description: description?.trim(),
@@ -182,12 +179,13 @@ export async function activate(context: vscode.ExtensionContext) {
 
     const config = vscode.workspace.getConfiguration("openproject");
     if (config.get("url") && config.get("apiKey")) {
-        openProjectClient.initialize().then((success) => {
+        apiClient.initialize().then((success) => {
             if (success) {
                 projectTreeProvider.refresh();
             }
         });
     }
+
 }
 
 export function deactivate() {

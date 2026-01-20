@@ -38,7 +38,6 @@ exports.deactivate = deactivate;
 const vscode = __importStar(require("vscode"));
 const workPackageTreeProvider_1 = require("./providers/workPackageTreeProvider");
 const apiClient_1 = require("./api/apiClient");
-const workPackageWebview_1 = require("./views/workPackageWebview");
 async function activate(context) {
     console.log("OpenProject extension activated");
     const projectTreeProvider = new workPackageTreeProvider_1.ProjectTreeProvider();
@@ -46,6 +45,7 @@ async function activate(context) {
         treeDataProvider: projectTreeProvider,
         showCollapseAll: true,
     });
+    context.subscriptions.push(treeView);
     context.subscriptions.push(treeView);
     await projectTreeProvider.initialize();
     // Connection config
@@ -86,7 +86,7 @@ async function activate(context) {
         await config.update("url", url, vscode.ConfigurationTarget.Global);
         await config.update("apiKey", apiKey, vscode.ConfigurationTarget.Global);
         // Init client
-        const success = await apiClient_1.openProjectClient.initialize();
+        const success = await openProjectClient.initialize();
         if (success) {
             vscode.window.showInformationMessage("✅ OpenProject configured successfully!");
             projectTreeProvider.refresh();
@@ -102,17 +102,17 @@ async function activate(context) {
     });
     // Open work package
     const openWorkPackageCommand = vscode.commands.registerCommand("openproject.openWorkPackage", async (workPackage) => {
-        const fullWorkPackage = await apiClient_1.openProjectClient.getWorkPackage(workPackage.id);
+        const fullWorkPackage = await apiClient_1.apiClient.getWorkPackage(workPackage.id);
         if (!fullWorkPackage) {
             vscode.window.showErrorMessage("Failed to load work package");
             return;
         }
-        workPackageWebview_1.WorkPackageWebviewManager.createOrShow(context.extensionUri, fullWorkPackage);
+        WorkPackageWebviewManager.createOrShow(context.extensionUri, fullWorkPackage);
     });
     const createWorkPackageCommand = vscode.commands.registerCommand("openproject.createWorkPackage", async (treeItem) => {
         let project = treeItem?.project;
         if (!project) {
-            const projects = await apiClient_1.openProjectClient.getProjects();
+            const projects = await apiClient_1.apiClient.getProjects();
             if (projects.length === 0) {
                 vscode.window.showWarningMessage("No projects available");
                 return;
@@ -145,7 +145,7 @@ async function activate(context) {
             placeHolder: "Task description...",
         });
         // Create work package
-        const created = await apiClient_1.openProjectClient.createWorkPackage({
+        const created = await apiClient_1.apiClient.createWorkPackage({
             projectId: project.id,
             subject: subject.trim(),
             description: description?.trim(),
@@ -161,7 +161,7 @@ async function activate(context) {
     context.subscriptions.push(configureCommand, refreshCommand, openWorkPackageCommand, createWorkPackageCommand);
     const config = vscode.workspace.getConfiguration("openproject");
     if (config.get("url") && config.get("apiKey")) {
-        apiClient_1.openProjectClient.initialize().then((success) => {
+        apiClient_1.apiClient.initialize().then((success) => {
             if (success) {
                 projectTreeProvider.refresh();
             }
