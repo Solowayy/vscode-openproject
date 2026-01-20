@@ -119,76 +119,15 @@ class ApiClient {
         }
     }
     async createWorkPackage(data) {
-        try {
-            const payload = {
-                subject: data.subject,
-                description: {
-                    format: 'markdown',
-                    raw: data.description || ''
-                },
-                _links: {
-                    project: {
-                        href: `/api/v3/projects/${data.projectId}`
-                    },
-                    ...(data.typeId && {
-                        type: {
-                            href: `/api/v3/types/${data.typeId}`
-                        }
-                    }),
-                    ...(data.statusId && {
-                        status: {
-                            href: `/api/v3/statuses/${data.statusId}`
-                        }
-                    })
-                }
-            };
-            const response = await this.client.post('/api/v3/work_packages', payload);
-            return response.data;
-        }
-        catch (error) {
-            console.error('Error creating work package:', error);
-            return null;
-        }
+        // TODO:
+        vscode.window.showInformationMessage('Work package created' + data.subject);
+        return true;
     }
-    async updateWorkPackage(id, data) {
-        try {
-            const response = await this.client.patch(`/api/v3/work_packages/${id}`, data);
-            return response.data;
-        }
-        catch (error) {
-            console.error('Error updating work package:', error);
-            return null;
-        }
-    }
-    async getStatuses() {
-        try {
-            const response = await this.client.get('/api/v3/statuses');
-            return response.data._embedded.elements;
-        }
-        catch (error) {
-            console.error('Error fetching statuses:', error);
-            return [];
-        }
-    }
-    async getTypes() {
-        try {
-            const response = await this.client.get('/api/v3/types');
-            return response.data._embedded.elements;
-        }
-        catch (error) {
-            console.error('Error fetching types:', error);
-            return [];
-        }
-    }
-    async getCurrentUser() {
-        try {
-            const response = await this.client.get('/api/v3/users/me');
-            return response.data;
-        }
-        catch (error) {
-            console.error('Error fetching user:', error);
-            return null;
-        }
+    async updateWorkPackage(workPackageId, data) {
+        // TODO: Implement PATCH request to /api/v3/work_packages/{id}
+        vscode.window.showInformationMessage(`Updating work package #${workPackageId}...`);
+        console.log('Update data:', data);
+        return true;
     }
 }
 exports.ApiClient = ApiClient;

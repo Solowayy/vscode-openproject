@@ -68,6 +68,9 @@
       case "updateSuccess":
         toggleMode("view");
         break;
+      case "updateError":
+        alert("Failed to update work package. Please try again.");
+        break;
     }
   });
 })();

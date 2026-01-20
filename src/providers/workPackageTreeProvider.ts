@@ -9,7 +9,8 @@ export class ProjectTreeItem extends vscode.TreeItem {
     public readonly itemType: "project" | "workpackage" | "folder" | "message",
     public readonly project?: Project,
     public readonly workPackage?: WorkPackage,
-    public readonly parentProject?: Project
+    public readonly parentProject?: Project,
+    public readonly allProjectWorkPackages: WorkPackage[] = []
   ) {
     super(label, collapsibleState);
 
@@ -24,7 +25,7 @@ export class ProjectTreeItem extends vscode.TreeItem {
       this.description = `#${workPackage?.id}`;
       this.command = {
         command: "openproject.openWorkPackage",
-        title: "Open work package",
+        title: "Open work project",
         arguments: [workPackage],
       };
     } else if (itemType === "folder") {
@@ -38,75 +39,27 @@ export class ProjectTreeItem extends vscode.TreeItem {
 }
 
 export class ProjectTreeProvider
-  implements vscode.TreeDataProvider<ProjectTreeItem>
-{
+  implements vscode.TreeDataProvider<ProjectTreeItem> {
+  // onDidChangeTreeData?: vscode.Event<ProjectTreeItem | null | undefined> | undefined;
   private _onDidChangeTreeData: vscode.EventEmitter<
-    ProjectTreeItem | undefined | null | void
-  > = new vscode.EventEmitter<ProjectTreeItem | undefined | null | void>();
-  readonly onDidChangeTreeData: vscode.Event<
-    ProjectTreeItem | undefined | null | void
-  > = this._onDidChangeTreeData.event;
+    ProjectTreeItem | undefined | null
+  > = new vscode.EventEmitter();
+  readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
 
   private projects: Project[] = [];
-  private workPackagesByProject: Map<number, WorkPackage[]> = new Map();
-  private hierarchyCache: Map<number, Map<string, WorkPackage[]>> = new Map();
-
-  constructor() {}
-
-  async initialize(): Promise<void> {
-    await this.loadData();
-  }
+  private wpCache: Map<number, WorkPackage[]> = new Map();
 
   refresh(): void {
-    this.loadData().then(() => {
-      this._onDidChangeTreeData.fire();
-    });
+    this.wpCache.clear();
+    this.loadData().then(() => this._onDidChangeTreeData.fire(null));
   }
 
   private async loadData(): Promise<void> {
-    try {
-      if (!apiClient.isConfigured()) {
-        const initialized = await apiClient.initialize();
-        if (!initialized) {
-          return;
-        }
-      }
-
-      this.projects = await apiClient.getProjects();
-
-      this.workPackagesByProject.clear();
-      this.hierarchyCache.clear();
-
-      for (const project of this.projects) {
-        const workPackages = await apiClient.getWorkPackages(
-          project.id
-        );
-        this.workPackagesByProject.set(project.id, workPackages);
-
-        this.buildHierarchy(project.id, workPackages);
-      }
-    } catch (error) {
-      console.error("Loading data error:", error);
-      vscode.window.showErrorMessage("Error loading data form OpenProject");
-    }
-  }
-
-  private buildHierarchy(projectId: number, workPackages: WorkPackage[]): void {
-    const hierarchy = new Map<string, WorkPackage[]>();
-
-    const byType = new Map<string, WorkPackage[]>();
-
-    for (const wp of workPackages) {
-      const typeHref = wp._links.type?.href || "unknown";
-      const typeName = wp._links.type?.title || "Else";
-
-      if (!byType.has(typeName)) {
-        byType.set(typeName, []);
-      }
-      byType.get(typeName)!.push(wp);
+    if (!apiClient.isConfigured()) {
+      await apiClient.initialize();
     }
 
-    this.hierarchyCache.set(projectId, byType);
+    this.projects = await apiClient.getProjects();
   }
 
   getTreeItem(element: ProjectTreeItem): vscode.TreeItem {
@@ -114,114 +67,104 @@ export class ProjectTreeProvider
   }
 
   async getChildren(element?: ProjectTreeItem): Promise<ProjectTreeItem[]> {
-    if (!apiClient.isConfigured()) {
+    if (!apiClient.isConfigured())
       return [
         new ProjectTreeItem(
-          "SetUp connection with OpenProject",
+          "Failed to connect",
           vscode.TreeItemCollapsibleState.None,
           "message"
         ),
       ];
-    }
 
     if (!element) {
-      if (this.projects.length === 0) {
-        await this.loadData();
-
-        if (this.projects.length === 0) {
-          return [
-            new ProjectTreeItem(
-              "Project is not found",
-              vscode.TreeItemCollapsibleState.None,
-              "message"
-            ),
-          ];
-        }
-      }
-
-      return this.projects.map(
-        (project) =>
+      const topLevel = await apiClient.getProjects();
+      return topLevel.map(
+        (p) =>
           new ProjectTreeItem(
-            project.name,
+            p.name,
             vscode.TreeItemCollapsibleState.Collapsed,
             "project",
-            project
+            p
           )
       );
     }
 
     if (element.itemType === "project" && element.project) {
       const projectId = element.project.id;
-      const hierarchy = this.hierarchyCache.get(projectId);
 
-      if (!hierarchy || hierarchy.size === 0) {
-        return [
-          new ProjectTreeItem(
-            "No work package",
-            vscode.TreeItemCollapsibleState.None,
-            "message"
-          ),
-        ];
-      }
+      const [subProjects, workPackages] = await Promise.all([
+        apiClient.getProjects(projectId),
+        apiClient.getWorkPackages(projectId),
+      ]);
 
-      const folders: ProjectTreeItem[] = [];
+      console.log(
+        `Fetched ${workPackages.length} tasks for project ${projectId}`
+      );
 
-      for (const [typeName, workPackages] of hierarchy.entries()) {
-        folders.push(
-          new ProjectTreeItem(
-            `${typeName} (${workPackages.length})`,
-            vscode.TreeItemCollapsibleState.Collapsed,
-            "folder",
-            undefined,
-            undefined,
-            element.project
-          )
-        );
-      }
+      const rootTasks = workPackages.filter((wp) => {
+        return !wp._links.parent || !wp._links.parent.href;
+      });
+      console.log(`Found ${rootTasks.length} root tasks`);
 
-      return folders;
+      return [
+        ...subProjects.map(
+          (p) =>
+            new ProjectTreeItem(
+              p.name,
+              vscode.TreeItemCollapsibleState.Collapsed,
+              "project",
+              p
+            )
+        ),
+        ...rootTasks.map((wp) =>
+          this.createWorkPackageItem(wp, element.project!, workPackages)
+        ),
+      ];
     }
 
-    if (element.itemType === "folder" && element.parentProject) {
-      const projectId = element.parentProject.id;
-      const hierarchy = this.hierarchyCache.get(projectId);
+    if (element.itemType === "workpackage" && element.workPackage) {
+      const parentProject = element.parentProject;
 
-      if (!hierarchy) {
-        return [];
-      }
+      if (!parentProject) return [];
 
-      const typeName = element.label.replace(/\s*\(\d+\)$/, "");
-      const workPackages = hierarchy.get(typeName) || [];
+      const children = element.allProjectWorkPackages.filter((wp) => {
+        const parentHref = wp._links.parent?.href;
+        const selfHref = element.workPackage?._links.self.href;
+        return parentHref && selfHref && parentHref === selfHref;
+      });
 
-      return workPackages.map(
-        (wp) =>
-          new ProjectTreeItem(
-            wp.subject,
-            vscode.TreeItemCollapsibleState.None,
-            "workpackage",
-            undefined,
-            wp,
-            element.parentProject
-          )
+      return children.map((ch) =>
+        this.createWorkPackageItem(
+          ch,
+          element.project!,
+          element.allProjectWorkPackages
+        )
       );
     }
 
     return [];
   }
 
-  public async createWorkPackage(
-    project: Project,
-    data: {
-      subject: string;
-      description?: string;
-    }
-  ): Promise<void> {
-    await apiClient.createWorkPackage({
-      projectId: project.id,
-      subject: data.subject,
-      description: data.description,
-    });
+  private createWorkPackageItem(
+    wp: WorkPackage,
+    parentProject: Project,
+    allWps: WorkPackage[]
+  ): ProjectTreeItem {
+    const selfHref = wp._links.self.href;
+    const hasChildren = allWps.some(
+      (item) => item._links.parent?.href === selfHref
+    );
 
-    this.refresh();
+    return new ProjectTreeItem(
+      wp.subject,
+      hasChildren
+        ? vscode.TreeItemCollapsibleState.Collapsed
+        : vscode.TreeItemCollapsibleState.None,
+      "workpackage",
+      undefined,
+      wp,
+      parentProject,
+      allWps
+    );
   }
 }

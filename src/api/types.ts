@@ -45,6 +45,9 @@ export interface Project {
 
 export interface WorkPackage {
     id: number;
+    type: string;
+    status: string;
+    priority: string;
     subject: string;
     description?: {
         format: string;

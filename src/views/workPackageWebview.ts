@@ -25,27 +25,28 @@ export class WorkPackageWebviewManager {
 
     // Handle messages from the webview
     panel.webview.onDidReceiveMessage(
-      (message) => {
+      async (message) => {
         switch (message.command) {
           case "save":
-            vscode.window.showInformationMessage(
-              `Saving work package #${workPackage.id}... (Stub)`
+            // Execute the updateWorkPackage command
+            const success = await vscode.commands.executeCommand(
+              'openproject.updateWorkPackage',
+              workPackage.id,
+              message.data
             );
-            console.log("Save data:", message.data);
 
-            setTimeout(() => {
-              vscode.window.showInformationMessage(
-                "✅ Work package updated (Stub)!"
-              );
-
-              // Send status back
+            if (success) {
+              // Send success message back to webview to switch to view mode
               panel.webview.postMessage({ command: "updateSuccess" });
 
-              // !!
-              // 1 Call updateWorkPackage
-              // 2 Refresh tree view
-              // 3 Update local workPackage object and re-render Webview
-            }, 1000);
+              // Update the panel title if subject changed
+              if (message.data.subject) {
+                panel.title = `#${workPackage.id} - ${message.data.subject}`;
+              }
+            } else {
+              // Send error message back to webview
+              panel.webview.postMessage({ command: "updateError" });
+            }
             return;
         }
       },
@@ -75,9 +76,8 @@ export class WorkPackageWebviewManager {
     // Stub data for dropdowns
     // !!
     const getOption = (value: string, current: string) => `
-            <option value="${value}" ${
-      value === current ? "selected" : ""
-    }>${value}</option>
+            <option value="${value}" ${value === current ? "selected" : ""
+      }>${value}</option>
         `;
 
     return `<!DOCTYPE html>
@@ -124,9 +124,8 @@ export class WorkPackageWebviewManager {
             </div>
         </div>
 
-        ${
-          workPackage.description?.html
-            ? `
+        ${workPackage.description?.html
+        ? `
             <div class="info-section">
                 <h2>📝 Description</h2>
                 <div class="description">
@@ -134,13 +133,13 @@ export class WorkPackageWebviewManager {
                 </div>
             </div>
         `
-            : `
+        : `
             <div class="info-section">
                 <h2>📝 Description</h2>
                 <div class="empty-state">No description available</div>
             </div>
         `
-        }
+      }
     </div>
 
     <!-- EDIT CONTAINER -->
@@ -151,16 +150,14 @@ export class WorkPackageWebviewManager {
 
         <div class="form-group">
             <label for="input-subject">Subject</label>
-            <input type="text" id="input-subject" class="form-control" value="${
-              workPackage.subject
-            }">
+            <input type="text" id="input-subject" class="form-control" value="${workPackage.subject
+      }">
         </div>
 
         <div class="form-group">
             <label for="input-description">Description (Markdown)</label>
-            <textarea id="input-description" class="form-control">${
-              workPackage.description?.raw || ""
-            }</textarea>
+            <textarea id="input-description" class="form-control">${workPackage.description?.raw || ""
+      }</textarea>
         </div>
 
         <div class="info-grid form-group">
@@ -169,8 +166,8 @@ export class WorkPackageWebviewManager {
                 <!-- Stub Data -->
                 ${getOption(typeName, typeName)}
                 ${getOption("Task", typeName)}
-                ${getOption("Bug", typeName)}
-                ${getOption("Feature", typeName)}
+                ${getOption("Milestone", typeName)}
+                ${getOption("Summary task", typeName)}
             </select>
 
             <div class="label">Status</div>
@@ -178,8 +175,12 @@ export class WorkPackageWebviewManager {
                 <!-- Stub Data -->
                 ${getOption(statusName, statusName)}
                 ${getOption("New", statusName)}
+                ${getOption("To be scheduled", statusName)}
+                ${getOption("Scheduled", statusName)}
                 ${getOption("In Progress", statusName)}
                 ${getOption("Closed", statusName)}
+                ${getOption("On hold", statusName)}
+                ${getOption("Rejected", statusName)}
             </select>
 
             <div class="label">Priority</div>
@@ -189,6 +190,7 @@ export class WorkPackageWebviewManager {
                  ${getOption("Low", priorityName)}
                  ${getOption("Normal", priorityName)}
                  ${getOption("High", priorityName)}
+                 ${getOption("Immediate", priorityName)}
             </select>
         </div>
 

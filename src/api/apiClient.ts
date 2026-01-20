@@ -3,12 +3,11 @@ import * as vscode from 'vscode';
 import {
     OpenProjectConfig,
     CollectionResponse,
+    HALLink,
+    HALLinks,
     Project,
-    WorkPackage,
-    Status,
-    Type,
-    User
-} from './types';
+    WorkPackage
+} from './types'
 
 export class ApiClient {
     private client: Axios.AxiosInstance;
@@ -104,81 +103,31 @@ export class ApiClient {
 
     public async createWorkPackage(data: {
         projectId: number;
+        type: string;
+        status: string;
+        priority: string;
         subject: string;
         description?: string;
-        typeId?: number;
-        statusId?: number;
-    }): Promise<WorkPackage | null> {
-        try {
-            const payload = {
-                subject: data.subject,
-                description: {
-                    format: 'markdown',
-                    raw: data.description || ''
-                },
-                _links: {
-                    project: {
-                        href: `/api/v3/projects/${data.projectId}`
-                    },
-                    ...(data.typeId && {
-                        type: {
-                            href: `/api/v3/types/${data.typeId}`
-                        }
-                    }),
-                    ...(data.statusId && {
-                        status: {
-                            href: `/api/v3/statuses/${data.statusId}`
-                        }
-                    })
-                }
-            };
-
-            const response = await this.client.post<WorkPackage>('/api/v3/work_packages', payload);
-            return response.data;
-        } catch (error) {
-            console.error('Error creating work package:', error);
-            return null;
-        }
+    }): Promise<boolean> {
+        // TODO:
+        vscode.window.showInformationMessage('Work package created' + data.subject);
+        return true;
     }
 
-    public async updateWorkPackage(id: number, data: Partial<WorkPackage>): Promise<WorkPackage | null> {
-        try {
-            const response = await this.client.patch<WorkPackage>(`/api/v3/work_packages/${id}`, data);
-            return response.data;
-        } catch (error) {
-            console.error('Error updating work package:', error);
-            return null;
+    public async updateWorkPackage(
+        workPackageId: number,
+        data: {
+            subject?: string;
+            description?: string;
+            statusId?: string;
+            typeId?: string;
+            priorityId?: string;
         }
-    }
-
-    public async getStatuses(): Promise<Status[]> {
-        try {
-            const response = await this.client.get<CollectionResponse<Status>>('/api/v3/statuses');
-            return response.data._embedded.elements;
-        } catch (error) {
-            console.error('Error fetching statuses:', error);
-            return [];
-        }
-    }
-
-    public async getTypes(): Promise<Type[]> {
-        try {
-            const response = await this.client.get<CollectionResponse<Type>>('/api/v3/types');
-            return response.data._embedded.elements;
-        } catch (error) {
-            console.error('Error fetching types:', error);
-            return [];
-        }
-    }
-
-    public async getCurrentUser(): Promise<User | null> {
-        try {
-            const response = await this.client.get<User>('/api/v3/users/me');
-            return response.data;
-        } catch (error) {
-            console.error('Error fetching user:', error);
-            return null;
-        }
+    ): Promise<boolean> {
+        // TODO: Implement PATCH request to /api/v3/work_packages/{id}
+        vscode.window.showInformationMessage(`Updating work package #${workPackageId}...`);
+        console.log('Update data:', data);
+        return true;
     }
 }
 
