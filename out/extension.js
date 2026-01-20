@@ -38,6 +38,7 @@ exports.deactivate = deactivate;
 const vscode = __importStar(require("vscode"));
 const workPackageTreeProvider_1 = require("./providers/workPackageTreeProvider");
 const apiClient_1 = require("./api/apiClient");
+const workPackageWebview_1 = require("./views/workPackageWebview");
 async function activate(context) {
     console.log("OpenProject extension activated");
     const projectTreeProvider = new workPackageTreeProvider_1.ProjectTreeProvider();
@@ -86,7 +87,7 @@ async function activate(context) {
         await config.update("url", url, vscode.ConfigurationTarget.Global);
         await config.update("apiKey", apiKey, vscode.ConfigurationTarget.Global);
         // Init client
-        const success = await openProjectClient.initialize();
+        const success = await apiClient_1.apiClient.initialize();
         if (success) {
             vscode.window.showInformationMessage("✅ OpenProject configured successfully!");
             projectTreeProvider.refresh();
@@ -107,7 +108,7 @@ async function activate(context) {
             vscode.window.showErrorMessage("Failed to load work package");
             return;
         }
-        WorkPackageWebviewManager.createOrShow(context.extensionUri, fullWorkPackage);
+        workPackageWebview_1.WorkPackageWebviewManager.createOrShow(context.extensionUri, fullWorkPackage);
     });
     const createWorkPackageCommand = vscode.commands.registerCommand("openproject.createWorkPackage", async (treeItem) => {
         let project = treeItem?.project;

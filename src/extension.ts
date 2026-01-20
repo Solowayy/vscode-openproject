@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { ProjectTreeProvider, ProjectTreeItem } from './providers/workPackageTreeProvider';
 import { apiClient } from './api/apiClient';
 import { WorkPackage, Project } from './api/types';
+import { WorkPackageWebviewManager } from './views/workPackageWebview';
 
 export async function activate(context: vscode.ExtensionContext) {
     console.log("OpenProject extension activated");
@@ -63,7 +64,7 @@ export async function activate(context: vscode.ExtensionContext) {
             await config.update("apiKey", apiKey, vscode.ConfigurationTarget.Global);
 
             // Init client
-            const success = await openProjectClient.initialize();
+            const success = await apiClient.initialize();
             if (success) {
                 vscode.window.showInformationMessage(
                     "✅ OpenProject configured successfully!"
