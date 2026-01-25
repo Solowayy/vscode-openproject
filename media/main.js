@@ -50,10 +50,17 @@
     const data = {
       subject: inputSubject ? inputSubject.value : "",
       description: inputDescription ? inputDescription.value : "",
-      statusId: selectStatus ? selectStatus.value : "",
-      typeId: selectType ? selectType.value : "",
-      priorityId: selectPriority ? selectPriority.value : "",
     };
+
+    if (selectStatus && selectStatus.value && selectStatus.value.trim() !== "") {
+      data.statusId = selectStatus.value;
+    }
+    if (selectType && selectType.value && selectType.value.trim() !== "") {
+      data.typeId = selectType.value;
+    }
+    if (selectPriority && selectPriority.value && selectPriority.value.trim() !== "") {
+      data.priorityId = selectPriority.value;
+    }
 
     vscode.postMessage({
       command: "save",

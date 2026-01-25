@@ -53,6 +53,10 @@ class ProjectTreeItem extends vscode.TreeItem {
         }
         else if (itemType === "workpackage") {
             this.contextValue = "workpackage";
+            // Check if Summary Task (Type ID = 3)
+            if (workPackage && workPackage._links.type.href.endsWith("/3")) {
+                this.contextValue = "workpackage_summary";
+            }
             this.iconPath = new vscode.ThemeIcon("file");
             this.tooltip = `#${workPackage?.id} - ${workPackage?.subject}`;
             this.description = `#${workPackage?.id}`;

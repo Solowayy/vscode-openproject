@@ -10,7 +10,7 @@ export class ProjectTreeItem extends vscode.TreeItem {
     public readonly project?: Project,
     public readonly workPackage?: WorkPackage,
     public readonly parentProject?: Project,
-    public readonly allProjectWorkPackages: WorkPackage[] = []
+    public readonly allProjectWorkPackages: WorkPackage[] = [],
   ) {
     super(label, collapsibleState);
 
@@ -20,6 +20,10 @@ export class ProjectTreeItem extends vscode.TreeItem {
       this.tooltip = project?.description?.raw || project?.name;
     } else if (itemType === "workpackage") {
       this.contextValue = "workpackage";
+      // Check if Summary Task (Type ID = 3)
+      if (workPackage && workPackage._links.type.href.endsWith("/3")) {
+        this.contextValue = "workpackage_summary";
+      }
       this.iconPath = new vscode.ThemeIcon("file");
       this.tooltip = `#${workPackage?.id} - ${workPackage?.subject}`;
       this.description = `#${workPackage?.id}`;
@@ -38,8 +42,7 @@ export class ProjectTreeItem extends vscode.TreeItem {
   }
 }
 
-export class ProjectTreeProvider
-  implements vscode.TreeDataProvider<ProjectTreeItem> {
+export class ProjectTreeProvider implements vscode.TreeDataProvider<ProjectTreeItem> {
   // onDidChangeTreeData?: vscode.Event<ProjectTreeItem | null | undefined> | undefined;
   private _onDidChangeTreeData: vscode.EventEmitter<
     ProjectTreeItem | undefined | null
@@ -72,7 +75,7 @@ export class ProjectTreeProvider
         new ProjectTreeItem(
           "Failed to connect",
           vscode.TreeItemCollapsibleState.None,
-          "message"
+          "message",
         ),
       ];
 
@@ -84,8 +87,8 @@ export class ProjectTreeProvider
             p.name,
             vscode.TreeItemCollapsibleState.Collapsed,
             "project",
-            p
-          )
+            p,
+          ),
       );
     }
 
@@ -98,7 +101,7 @@ export class ProjectTreeProvider
       ]);
 
       console.log(
-        `Fetched ${workPackages.length} tasks for project ${projectId}`
+        `Fetched ${workPackages.length} tasks for project ${projectId}`,
       );
 
       const rootTasks = workPackages.filter((wp) => {
@@ -113,11 +116,11 @@ export class ProjectTreeProvider
               p.name,
               vscode.TreeItemCollapsibleState.Collapsed,
               "project",
-              p
-            )
+              p,
+            ),
         ),
         ...rootTasks.map((wp) =>
-          this.createWorkPackageItem(wp, element.project!, workPackages)
+          this.createWorkPackageItem(wp, element.project!, workPackages),
         ),
       ];
     }
@@ -137,8 +140,8 @@ export class ProjectTreeProvider
         this.createWorkPackageItem(
           ch,
           element.project!,
-          element.allProjectWorkPackages
-        )
+          element.allProjectWorkPackages,
+        ),
       );
     }
 
@@ -148,11 +151,11 @@ export class ProjectTreeProvider
   private createWorkPackageItem(
     wp: WorkPackage,
     parentProject: Project,
-    allWps: WorkPackage[]
+    allWps: WorkPackage[],
   ): ProjectTreeItem {
     const selfHref = wp._links.self.href;
     const hasChildren = allWps.some(
-      (item) => item._links.parent?.href === selfHref
+      (item) => item._links.parent?.href === selfHref,
     );
 
     return new ProjectTreeItem(
@@ -164,7 +167,7 @@ export class ProjectTreeProvider
       undefined,
       wp,
       parentProject,
-      allWps
+      allWps,
     );
   }
 }

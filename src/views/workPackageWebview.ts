@@ -4,7 +4,7 @@ import { WorkPackage } from "../api/types";
 export class WorkPackageWebviewManager {
   public static createOrShow(
     extensionUri: vscode.Uri,
-    workPackage: WorkPackage
+    workPackage: WorkPackage,
   ) {
     const panel = vscode.window.createWebviewPanel(
       "workPackageDetail",
@@ -14,13 +14,13 @@ export class WorkPackageWebviewManager {
         enableScripts: true,
         retainContextWhenHidden: true,
         localResourceRoots: [vscode.Uri.joinPath(extensionUri, "media")],
-      }
+      },
     );
 
     panel.webview.html = this.getHtmlForWebview(
       panel.webview,
       extensionUri,
-      workPackage
+      workPackage,
     );
 
     // Handle messages from the webview
@@ -30,9 +30,9 @@ export class WorkPackageWebviewManager {
           case "save":
             // Execute the updateWorkPackage command
             const success = await vscode.commands.executeCommand(
-              'openproject.updateWorkPackage',
+              "openproject.updateWorkPackage",
               workPackage.id,
-              message.data
+              message.data,
             );
 
             if (success) {
@@ -51,20 +51,20 @@ export class WorkPackageWebviewManager {
         }
       },
       undefined,
-      []
+      [],
     );
   }
 
   private static getHtmlForWebview(
     webview: vscode.Webview,
     extensionUri: vscode.Uri,
-    workPackage: WorkPackage
+    workPackage: WorkPackage,
   ): string {
     const styleUri = webview.asWebviewUri(
-      vscode.Uri.joinPath(extensionUri, "media", "style.css")
+      vscode.Uri.joinPath(extensionUri, "media", "style.css"),
     );
     const scriptUri = webview.asWebviewUri(
-      vscode.Uri.joinPath(extensionUri, "media", "main.js")
+      vscode.Uri.joinPath(extensionUri, "media", "main.js"),
     );
 
     const statusName = workPackage._links.status?.title || "Unknown";
@@ -72,13 +72,6 @@ export class WorkPackageWebviewManager {
     const projectName = workPackage._links.project?.title || "Unknown";
     const assigneeName = workPackage._links.assignee?.title || "Unassigned";
     const priorityName = workPackage._links.priority?.title || "Unknown";
-
-    // Stub data for dropdowns
-    // !!
-    const getOption = (value: string, current: string) => `
-            <option value="${value}" ${value === current ? "selected" : ""
-      }>${value}</option>
-        `;
 
     return `<!DOCTYPE html>
 <html lang="en">
@@ -163,31 +156,28 @@ export class WorkPackageWebviewManager {
         <div class="info-grid form-group">
             <div class="label">Type</div>
             <select id="select-type" class="form-control">
-                <!-- Stub Data -->
-                ${getOption("Task", typeName)}
-                ${getOption("Milestone", typeName)}
-                ${getOption("Summary task", typeName)}
+                <option value="1" ${typeName === "Task" ? "selected" : ""}>Task</option>
+                <option value="2" ${typeName === "Milestone" ? "selected" : ""}>Milestone</option>
+                <option value="3" ${typeName === "Summary task" ? "selected" : ""}>Summary task</option>
             </select>
 
             <div class="label">Status</div>
             <select id="select-status" class="form-control">
-                <!-- Stub Data -->
-                ${getOption("New", statusName)}
-                ${getOption("To be scheduled", statusName)}
-                ${getOption("Scheduled", statusName)}
-                ${getOption("In Progress", statusName)}
-                ${getOption("Closed", statusName)}
-                ${getOption("On hold", statusName)}
-                ${getOption("Rejected", statusName)}
+                <option value="1" ${statusName === "New" ? "selected" : ""}>New</option>
+                <option value="5" ${statusName === "To be scheduled" ? "selected" : ""}>To be scheduled</option>
+                <option value="6" ${statusName === "Scheduled" ? "selected" : ""}>Scheduled</option>
+                <option value="7" ${statusName === "In Progress" ? "selected" : ""}>In Progress</option>
+                <option value="12" ${statusName === "Closed" ? "selected" : ""}>Closed</option>
+                <option value="13" ${statusName === "On hold" ? "selected" : ""}>On hold</option>
+                <option value="14" ${statusName === "Rejected" ? "selected" : ""}>Rejected</option>
             </select>
 
             <div class="label">Priority</div>
             <select id="select-priority" class="form-control">
-                 <!-- Stub Data -->
-                 ${getOption("Low", priorityName)}
-                 ${getOption("Normal", priorityName)}
-                 ${getOption("High", priorityName)}
-                 ${getOption("Immediate", priorityName)}
+                 <option value="7" ${priorityName === "Low" ? "selected" : ""}>Low</option>
+                 <option value="8" ${priorityName === "Normal" ? "selected" : ""}>Normal</option>
+                 <option value="9" ${priorityName === "High" ? "selected" : ""}>High</option>
+                 <option value="10" ${priorityName === "Immediate" ? "selected" : ""}>Immediate</option>
             </select>
         </div>
 
