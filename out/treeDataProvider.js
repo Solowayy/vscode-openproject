@@ -36,9 +36,6 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.MyTreeDataProvider = exports.MyTreeItem = void 0;
 const vscode = __importStar(require("vscode"));
 class MyTreeItem extends vscode.TreeItem {
-    label;
-    collapsibleState;
-    children;
     constructor(label, collapsibleState, children) {
         super(label, collapsibleState);
         this.label = label;
@@ -48,8 +45,10 @@ class MyTreeItem extends vscode.TreeItem {
 }
 exports.MyTreeItem = MyTreeItem;
 class MyTreeDataProvider {
-    _onDidChangeTreeData = new vscode.EventEmitter();
-    onDidChangeTreeData = this._onDidChangeTreeData.event;
+    constructor() {
+        this._onDidChangeTreeData = new vscode.EventEmitter();
+        this.onDidChangeTreeData = this._onDidChangeTreeData.event;
+    }
     refresh() {
         this._onDidChangeTreeData.fire();
     }

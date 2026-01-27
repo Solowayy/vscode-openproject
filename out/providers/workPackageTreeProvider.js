@@ -37,13 +37,6 @@ exports.ProjectTreeProvider = exports.ProjectTreeItem = void 0;
 const vscode = __importStar(require("vscode"));
 const apiClient_1 = require("../api/apiClient");
 class ProjectTreeItem extends vscode.TreeItem {
-    label;
-    collapsibleState;
-    itemType;
-    project;
-    workPackage;
-    parentProject;
-    allProjectWorkPackages;
     constructor(label, collapsibleState, itemType, project, workPackage, parentProject, allProjectWorkPackages = []) {
         super(label, collapsibleState);
         this.label = label;
@@ -53,42 +46,48 @@ class ProjectTreeItem extends vscode.TreeItem {
         this.workPackage = workPackage;
         this.parentProject = parentProject;
         this.allProjectWorkPackages = allProjectWorkPackages;
-        if (itemType === 'project') {
-            this.contextValue = 'project';
-            this.iconPath = new vscode.ThemeIcon('folder-opened');
+        if (itemType === "project") {
+            this.contextValue = "project";
+            this.iconPath = new vscode.ThemeIcon("folder-opened");
             this.tooltip = project?.description?.raw || project?.name;
         }
-        else if (itemType === 'workpackage') {
-            this.contextValue = 'workpackage';
-            this.iconPath = new vscode.ThemeIcon('file');
+        else if (itemType === "workpackage") {
+            this.contextValue = "workpackage";
+            // Check if Summary Task (Type ID = 3)
+            if (workPackage && workPackage._links.type.href.endsWith("/3")) {
+                this.contextValue = "workpackage_summary";
+            }
+            this.iconPath = new vscode.ThemeIcon("file");
             this.tooltip = `#${workPackage?.id} - ${workPackage?.subject}`;
             this.description = `#${workPackage?.id}`;
             this.command = {
-                command: 'openproject.openWorkPackage',
-                title: 'Відкрити робочий пакет',
-                arguments: [workPackage]
+                command: "openproject.openWorkPackage",
+                title: "Open work project",
+                arguments: [workPackage],
             };
         }
-        else if (itemType === 'folder') {
-            this.iconPath = new vscode.ThemeIcon('folder');
-            this.contextValue = 'folder';
+        else if (itemType === "folder") {
+            this.iconPath = new vscode.ThemeIcon("folder");
+            this.contextValue = "folder";
         }
-        else if (itemType === 'message') {
-            this.iconPath = new vscode.ThemeIcon('info');
-            this.contextValue = 'message';
+        else if (itemType === "message") {
+            this.iconPath = new vscode.ThemeIcon("info");
+            this.contextValue = "message";
         }
     }
 }
 exports.ProjectTreeItem = ProjectTreeItem;
 class ProjectTreeProvider {
-    // onDidChangeTreeData?: vscode.Event<ProjectTreeItem | null | undefined> | undefined;
-    _onDidChangeTreeData = new vscode.EventEmitter();
-    onDidChangeTreeData = this._onDidChangeTreeData.event;
-    projects = [];
-    wpCache = new Map();
+    constructor() {
+        // onDidChangeTreeData?: vscode.Event<ProjectTreeItem | null | undefined> | undefined;
+        this._onDidChangeTreeData = new vscode.EventEmitter();
+        this.onDidChangeTreeData = this._onDidChangeTreeData.event;
+        this.projects = [];
+        this.wpCache = new Map();
+    }
     refresh() {
         this.wpCache.clear();
-        this.loadData().then(() => this._onDidChangeTreeData.fire());
+        this.loadData().then(() => this._onDidChangeTreeData.fire(null));
     }
     async loadData() {
         if (!apiClient_1.apiClient.isConfigured()) {
@@ -101,45 +100,48 @@ class ProjectTreeProvider {
     }
     async getChildren(element) {
         if (!apiClient_1.apiClient.isConfigured())
-            return [new ProjectTreeItem('Failed to connect', vscode.TreeItemCollapsibleState.None, 'message')];
-        ;
+            return [
+                new ProjectTreeItem("Failed to connect", vscode.TreeItemCollapsibleState.None, "message"),
+            ];
         if (!element) {
             const topLevel = await apiClient_1.apiClient.getProjects();
-            return topLevel.map(p => new ProjectTreeItem(p.name, vscode.TreeItemCollapsibleState.Collapsed, 'project', p));
+            return topLevel.map((p) => new ProjectTreeItem(p.name, vscode.TreeItemCollapsibleState.Collapsed, "project", p));
         }
-        if (element.itemType === 'project' && element.project) {
+        if (element.itemType === "project" && element.project) {
             const projectId = element.project.id;
             const [subProjects, workPackages] = await Promise.all([
                 apiClient_1.apiClient.getProjects(projectId),
-                apiClient_1.apiClient.getWorkPackages(projectId)
+                apiClient_1.apiClient.getWorkPackages(projectId),
             ]);
             console.log(`Fetched ${workPackages.length} tasks for project ${projectId}`);
-            const rootTasks = workPackages.filter(wp => {
+            const rootTasks = workPackages.filter((wp) => {
                 return !wp._links.parent || !wp._links.parent.href;
             });
             console.log(`Found ${rootTasks.length} root tasks`);
             return [
-                ...subProjects.map(p => new ProjectTreeItem(p.name, vscode.TreeItemCollapsibleState.Collapsed, 'project', p)),
-                ...rootTasks.map(wp => this.createWorkPackageItem(wp, element.project, workPackages))
+                ...subProjects.map((p) => new ProjectTreeItem(p.name, vscode.TreeItemCollapsibleState.Collapsed, "project", p)),
+                ...rootTasks.map((wp) => this.createWorkPackageItem(wp, element.project, workPackages)),
             ];
         }
-        if (element.itemType === 'workpackage' && element.workPackage) {
+        if (element.itemType === "workpackage" && element.workPackage) {
             const parentProject = element.parentProject;
             if (!parentProject)
                 return [];
-            const children = element.allProjectWorkPackages.filter(wp => {
+            const children = element.allProjectWorkPackages.filter((wp) => {
                 const parentHref = wp._links.parent?.href;
                 const selfHref = element.workPackage?._links.self.href;
                 return parentHref && selfHref && parentHref === selfHref;
             });
-            return children.map(ch => this.createWorkPackageItem(ch, element.project, element.allProjectWorkPackages));
+            return children.map((ch) => this.createWorkPackageItem(ch, element.project, element.allProjectWorkPackages));
         }
         return [];
     }
     createWorkPackageItem(wp, parentProject, allWps) {
         const selfHref = wp._links.self.href;
-        const hasChildren = allWps.some(item => item._links.parent?.href === selfHref);
-        return new ProjectTreeItem(wp.subject, hasChildren ? vscode.TreeItemCollapsibleState.Collapsed : vscode.TreeItemCollapsibleState.None, 'workpackage', undefined, wp, parentProject, allWps);
+        const hasChildren = allWps.some((item) => item._links.parent?.href === selfHref);
+        return new ProjectTreeItem(wp.subject, hasChildren
+            ? vscode.TreeItemCollapsibleState.Collapsed
+            : vscode.TreeItemCollapsibleState.None, "workpackage", undefined, wp, parentProject, allWps);
     }
 }
 exports.ProjectTreeProvider = ProjectTreeProvider;

@@ -38,322 +38,273 @@ exports.deactivate = deactivate;
 const vscode = __importStar(require("vscode"));
 const workPackageTreeProvider_1 = require("./providers/workPackageTreeProvider");
 const apiClient_1 = require("./api/apiClient");
+const workPackageWebview_1 = require("./views/workPackageWebview");
 async function activate(context) {
-    console.log('OpenProject розширення активовано');
-    // Створення та ініціалізація Tree Provider
+    console.log("OpenProject extension activated");
     const projectTreeProvider = new workPackageTreeProvider_1.ProjectTreeProvider();
-    // Реєструємо Tree View
-    const treeView = vscode.window.createTreeView('openproject.projectsView', {
+    const treeView = vscode.window.createTreeView("openproject.projectsView", {
         treeDataProvider: projectTreeProvider,
-        showCollapseAll: true
+        showCollapseAll: true,
     });
     context.subscriptions.push(treeView);
-    // Ініціалізуємо провайдер
-    // await projectTreeProvider.initialize();
-    // ============================================
-    // КОМАНДИ
-    // ============================================
-    // Команда: Налаштувати підключення
-    const configureCommand = vscode.commands.registerCommand('openproject.configure', async () => {
+    // Connection config
+    const configureCommand = vscode.commands.registerCommand("openproject.configure", async () => {
         const url = await vscode.window.showInputBox({
-            prompt: 'Введіть URL вашого OpenProject',
-            placeHolder: 'https://your-openproject.com',
-            value: vscode.workspace.getConfiguration('openproject').get('url'),
+            prompt: "Enter your OpenProject URL",
+            placeHolder: "https://your-openproject.com",
+            value: vscode.workspace.getConfiguration("openproject").get("url"),
             validateInput: (value) => {
                 if (!value) {
-                    return 'URL не може бути порожнім';
+                    return "URL cannot be empty";
                 }
-                if (!value.startsWith('http')) {
-                    return 'URL має починатися з http або https';
+                if (!value.startsWith("http")) {
+                    return "URL must start with http or https";
                 }
                 return null;
-            }
+            },
         });
         if (!url) {
             return;
         }
         const apiKey = await vscode.window.showInputBox({
-            prompt: 'Введіть ваш API ключ',
+            prompt: "Enter your API Key",
             password: true,
-            value: vscode.workspace.getConfiguration('openproject').get('apiKey'),
+            value: vscode.workspace.getConfiguration("openproject").get("apiKey"),
             validateInput: (value) => {
                 if (!value) {
-                    return 'API ключ не може бути порожнім';
+                    return "API Key cannot be empty";
                 }
                 return null;
-            }
+            },
         });
         if (!apiKey) {
             return;
         }
-        // Збереження конфігурації
-        const config = vscode.workspace.getConfiguration('openproject');
-        await config.update('url', url, vscode.ConfigurationTarget.Global);
-        await config.update('apiKey', apiKey, vscode.ConfigurationTarget.Global);
-        // Ініціалізація клієнта
+        // Save config
+        const config = vscode.workspace.getConfiguration("openproject");
+        await config.update("url", url, vscode.ConfigurationTarget.Global);
+        await config.update("apiKey", apiKey, vscode.ConfigurationTarget.Global);
+        // Init client
         const success = await apiClient_1.apiClient.initialize();
         if (success) {
-            vscode.window.showInformationMessage('✅ OpenProject успішно налаштовано!');
+            vscode.window.showInformationMessage("✅ OpenProject configured successfully!");
             projectTreeProvider.refresh();
         }
         else {
-            vscode.window.showErrorMessage('❌ Не вдалося підключитися до OpenProject');
+            vscode.window.showErrorMessage("❌ Failed to connect to OpenProject");
         }
     });
-    // Команда: Оновити дерево
-    const refreshCommand = vscode.commands.registerCommand('openproject.refresh', () => {
-        vscode.window.showInformationMessage('🔄 Оновлення даних...');
+    // Refresh Tree
+    const refreshCommand = vscode.commands.registerCommand("openproject.refresh", () => {
+        vscode.window.showInformationMessage("🔄 Refreshing data...");
         projectTreeProvider.refresh();
     });
-    // Команда: Відкрити робочий пакет
-    const openWorkPackageCommand = vscode.commands.registerCommand('openproject.openWorkPackage', async (workPackage) => {
-        // Отримуємо повні дані про робочий пакет
+    // Debug command to show actual IDs
+    const debugIdsCommand = vscode.commands.registerCommand("openproject.debugIds", async () => {
+        const types = await apiClient_1.apiClient.getTypes();
+        const statuses = await apiClient_1.apiClient.getStatuses();
+        const priorities = await apiClient_1.apiClient.getPriorities();
+        console.log("=== TYPES ===");
+        types.forEach(t => console.log(`${t.name}: ID = ${t.id}`));
+        console.log("=== STATUSES ===");
+        statuses.forEach(s => console.log(`${s.name}: ID = ${s.id}`));
+        console.log("=== PRIORITIES ===");
+        priorities.forEach(p => console.log(`${p.name}: ID = ${p.id}`));
+        vscode.window.showInformationMessage(`Check console for IDs. Types: ${types.length}, Statuses: ${statuses.length}, Priorities: ${priorities.length}`);
+    });
+    // Open Work Package
+    const openWorkPackageCommand = vscode.commands.registerCommand("openproject.openWorkPackage", async (workPackage) => {
         const fullWorkPackage = await apiClient_1.apiClient.getWorkPackage(workPackage.id);
         if (!fullWorkPackage) {
-            vscode.window.showErrorMessage('Не вдалося завантажити робочий пакет');
+            vscode.window.showErrorMessage("Failed to load work package");
             return;
         }
-        const panel = vscode.window.createWebviewPanel('workPackageDetail', `#${fullWorkPackage.id} - ${fullWorkPackage.subject}`, vscode.ViewColumn.One, {
-            enableScripts: true,
-            retainContextWhenHidden: true
-        });
-        panel.webview.html = getWorkPackageWebviewContent(fullWorkPackage);
+        workPackageWebview_1.WorkPackageWebviewManager.createOrShow(context.extensionUri, fullWorkPackage);
     });
-    // Команда: Створити новий робочий пакет
-    // const createWorkPackageCommand = vscode.commands.registerCommand(
-    //     'openproject.createWorkPackage',
-    //     async (treeItem?: ProjectTreeItem) => {
-    //         let project: Project | undefined = treeItem?.project;
-    //         // Якщо проект не вибрано, запитуємо користувача
-    //         if (!project) {
-    //             const projects = await apiClient.getProjects();
-    //             if (projects.length === 0) {
-    //                 vscode.window.showWarningMessage('Немає доступних проектів');
-    //                 return;
-    //             }
-    //             const selectedProject = await vscode.window.showQuickPick(
-    //                 projects.map(p => ({ 
-    //                     label: p.name, 
-    //                     description: p.identifier,
-    //                     project: p 
-    //                 })),
-    //                 { placeHolder: 'Оберіть проект' }
-    //             );
-    //             if (!selectedProject) {
-    //                 return;
-    //             }
-    //             project = selectedProject.project;
-    //         }
-    //         const subject = await vscode.window.showInputBox({
-    //             prompt: 'Введіть назву робочого пакету',
-    //             placeHolder: 'Назва задачі...',
-    //             validateInput: (value) => {
-    //                 if (!value || value.trim().length === 0) {
-    //                     return 'Назва не може бути порожньою';
-    //                 }
-    //                 return null;
-    //             }
-    //         });
-    //         if (!subject) {
-    //             return;
-    //         }
-    //         const description = await vscode.window.showInputBox({
-    //             prompt: 'Введіть опис (необов\'язково)',
-    //             placeHolder: 'Опис задачі...'
-    //         });
-    //         // Створюємо робочий пакет
-    //         const created = await apiClient.createWorkPackage({
-    //             projectId: project.id,
-    //             subject: subject.trim(),
-    //             description: description?.trim()
-    //         });
-    //         if (created) {
-    //             vscode.window.showInformationMessage(`✅ Робочий пакет "${subject}" створено!`);
-    //             projectTreeProvider.refresh();
-    //         } else {
-    //             vscode.window.showErrorMessage('❌ Не вдалося створити робочий пакет');
-    //         }
-    //     }
-    // );
-    // Реєстрація всіх команд
-    context.subscriptions.push(configureCommand, refreshCommand
-    // openWorkPackageCommand,
-    // createWorkPackageCommand
-    );
-    // Автоматична ініціалізація при старті (якщо налаштовано)
-    const config = vscode.workspace.getConfiguration('openproject');
-    if (config.get('url') && config.get('apiKey')) {
-        apiClient_1.apiClient.initialize().then(success => {
+    const createWorkPackageCommand = vscode.commands.registerCommand("openproject.createWorkPackage", async (treeItem) => {
+        let project = treeItem?.project;
+        // 1. Determine the Project
+        if (!project) {
+            const projects = await apiClient_1.apiClient.getProjects();
+            if (projects.length === 0) {
+                vscode.window.showWarningMessage("No projects available");
+                return;
+            }
+            const selectedProject = await vscode.window.showQuickPick(projects.map((p) => ({
+                label: p.name,
+                description: p.identifier,
+                project: p,
+            })), { placeHolder: "Select a project" });
+            if (!selectedProject) {
+                return; // User cancelled
+            }
+            project = selectedProject.project;
+        }
+        // 2. Fetch available options dynamically
+        const types = await apiClient_1.apiClient.getTypes(project.id);
+        const statuses = await apiClient_1.apiClient.getStatuses();
+        const priorities = await apiClient_1.apiClient.getPriorities();
+        // 3. Determine the Type, Status, Priority
+        const selectedType = await vscode.window.showQuickPick(types.map(t => ({ label: t.name, id: t.id })), { placeHolder: "Select a type" });
+        if (!selectedType)
+            return;
+        const selectedStatus = await vscode.window.showQuickPick(statuses.map(s => ({ label: s.name, id: s.id })), { placeHolder: "Select a status" });
+        if (!selectedStatus)
+            return;
+        const selectedPriority = await vscode.window.showQuickPick(priorities.map(p => ({ label: p.name, id: p.id })), { placeHolder: "Select a priority" });
+        if (!selectedPriority)
+            return;
+        const typeId = selectedType.id;
+        const statusId = selectedStatus.id;
+        const priorityId = selectedPriority.id;
+        // 3. Get Subject
+        const subject = await vscode.window.showInputBox({
+            prompt: "Enter work package subject",
+            placeHolder: "Task title...",
+            validateInput: (value) => {
+                if (!value || value.trim().length === 0) {
+                    return "Subject cannot be empty";
+                }
+                return null;
+            },
+        });
+        if (!subject) {
+            return;
+        }
+        // 4. Get Description (Optional)
+        const description = await vscode.window.showInputBox({
+            prompt: "Enter description (optional)",
+            placeHolder: "Task description...",
+        });
+        // 5. Get Assignee
+        const users = await apiClient_1.apiClient.getUsers();
+        // Allow user to select assignee or skip
+        const selectedAssignee = await vscode.window.showQuickPick([
+            { label: "$(circle-slash) Unassigned", user: undefined },
+            ...users.map(u => ({ label: `$(account) ${u.name}`, user: u }))
+        ], { placeHolder: "Select Assignee (Optional)" });
+        // 6. Call API
+        const created = await apiClient_1.apiClient.createWorkPackage({
+            projectId: project.id,
+            type: typeId.toString(),
+            status: statusId.toString(),
+            priority: priorityId.toString(),
+            subject: subject.trim(),
+            description: description?.trim(),
+            assignee: selectedAssignee?.user ? { id: selectedAssignee.user.id, href: selectedAssignee.user.href } : undefined,
+        });
+        if (created) {
+            vscode.window.showInformationMessage(`✅ Work package "${subject}" created!`);
+            projectTreeProvider.refresh();
+        }
+        else {
+            vscode.window.showErrorMessage("❌ Failed to create work package");
+        }
+    });
+    const createChildWorkPackageCommand = vscode.commands.registerCommand("openproject.createChildWorkPackage", async (treeItem) => {
+        if (!treeItem || !treeItem.workPackage) {
+            vscode.window.showErrorMessage("Please select a parent task first");
+            return;
+        }
+        const parentWorkPackage = treeItem.workPackage;
+        // Project should be in parentProject for workpackage items
+        const project = treeItem.parentProject || treeItem.project;
+        if (!project) {
+            vscode.window.showErrorMessage("Could not determine project context");
+            return;
+        }
+        // 1. Fetch Options Dynamically
+        const types = await apiClient_1.apiClient.getTypes(project.id);
+        const statuses = await apiClient_1.apiClient.getStatuses();
+        const priorities = await apiClient_1.apiClient.getPriorities();
+        // 2. Select Type, Status, Priority
+        const selectedType = await vscode.window.showQuickPick(types.map(t => ({ label: t.name, id: t.id })), { placeHolder: "Select a type" });
+        if (!selectedType)
+            return;
+        const selectedStatus = await vscode.window.showQuickPick(statuses.map(s => ({ label: s.name, id: s.id })), { placeHolder: "Select a status" });
+        if (!selectedStatus)
+            return;
+        const selectedPriority = await vscode.window.showQuickPick(priorities.map(p => ({ label: p.name, id: p.id })), { placeHolder: "Select a priority" });
+        if (!selectedPriority)
+            return;
+        const typeId = selectedType.id;
+        const statusId = selectedStatus.id;
+        const priorityId = selectedPriority.id;
+        // 2. Get Subject
+        const subject = await vscode.window.showInputBox({
+            prompt: `Enter sub-task subject (Parent: #${parentWorkPackage.id})`,
+            placeHolder: "Sub-task title...",
+            validateInput: (value) => {
+                if (!value || value.trim().length === 0) {
+                    return "Subject cannot be empty";
+                }
+                return null;
+            },
+        });
+        if (!subject)
+            return;
+        // 3. Get Description
+        const description = await vscode.window.showInputBox({
+            prompt: "Enter description (optional)",
+            placeHolder: "Task description...",
+        });
+        // 4. Get Assignee
+        const users = await apiClient_1.apiClient.getUsers();
+        const selectedAssignee = await vscode.window.showQuickPick([
+            { label: "$(circle-slash) Unassigned", user: undefined },
+            ...users.map(u => ({ label: `$(account) ${u.name}`, user: u }))
+        ], { placeHolder: "Select Assignee (Optional)" });
+        // 5. Call API with parentId
+        const created = await apiClient_1.apiClient.createWorkPackage({
+            projectId: project.id,
+            type: typeId.toString(),
+            status: statusId.toString(),
+            priority: priorityId.toString(),
+            subject: subject.trim(),
+            description: description?.trim(),
+            assignee: selectedAssignee?.user ? { id: selectedAssignee.user.id, href: selectedAssignee.user.href } : undefined,
+            parentId: parentWorkPackage.id
+        });
+        if (created) {
+            vscode.window.showInformationMessage(`✅ Child task "${subject}" created under #${parentWorkPackage.id}!`);
+            projectTreeProvider.refresh();
+        }
+        else {
+            vscode.window.showErrorMessage("❌ Failed to create child work package");
+        }
+    });
+    const updateWorkPackageCommand = vscode.commands.registerCommand("openproject.updateWorkPackage", async (workPackageId, updateData) => {
+        if (!workPackageId) {
+            vscode.window.showErrorMessage("Work package ID is required");
+            return;
+        }
+        // Call API to update work package
+        const success = await apiClient_1.apiClient.updateWorkPackage(workPackageId, updateData);
+        if (success) {
+            vscode.window.showInformationMessage(`✅ Work package #${workPackageId} updated successfully!`);
+            // Refresh tree view to show updated data
+            projectTreeProvider.refresh();
+            return true;
+        }
+        else {
+            vscode.window.showErrorMessage(`❌ Failed to update work package #${workPackageId}`);
+            return false;
+        }
+    });
+    // Register all commands
+    context.subscriptions.push(configureCommand, refreshCommand, 
+    //debugIdsCommand,
+    openWorkPackageCommand, createWorkPackageCommand, updateWorkPackageCommand);
+    const config = vscode.workspace.getConfiguration("openproject");
+    if (config.get("url") && config.get("apiKey")) {
+        apiClient_1.apiClient.initialize().then((success) => {
             if (success) {
                 projectTreeProvider.refresh();
             }
         });
     }
 }
-function getWorkPackageWebviewContent(workPackage) {
-    const statusName = workPackage._links.status?.title || 'Невідомо';
-    const typeName = workPackage._links.type?.title || 'Невідомо';
-    const projectName = workPackage._links.project?.title || 'Невідомо';
-    const assigneeName = workPackage._links.assignee?.title || 'Не призначено';
-    const priorityName = workPackage._links.priority?.title || 'Невідомо';
-    return `<!DOCTYPE html>
-<html lang="uk">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Робочий пакет #${workPackage.id}</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
-        body {
-            font-family: var(--vscode-font-family);
-            padding: 20px;
-            color: var(--vscode-foreground);
-            background-color: var(--vscode-editor-background);
-            line-height: 1.6;
-        }
-        
-        .header {
-            border-bottom: 2px solid var(--vscode-panel-border);
-            padding-bottom: 15px;
-            margin-bottom: 25px;
-        }
-        
-        h1 {
-            color: var(--vscode-editor-foreground);
-            font-size: 24px;
-            margin-bottom: 5px;
-        }
-        
-        .id-badge {
-            display: inline-block;
-            background-color: var(--vscode-badge-background);
-            color: var(--vscode-badge-foreground);
-            padding: 2px 8px;
-            border-radius: 3px;
-            font-size: 12px;
-            font-weight: bold;
-            margin-right: 10px;
-        }
-        
-        .info-section {
-            background-color: var(--vscode-editor-background);
-            border: 1px solid var(--vscode-panel-border);
-            border-radius: 6px;
-            padding: 20px;
-            margin-bottom: 20px;
-        }
-        
-        .info-section h2 {
-            color: var(--vscode-foreground);
-            font-size: 16px;
-            margin-bottom: 15px;
-            border-bottom: 1px solid var(--vscode-panel-border);
-            padding-bottom: 8px;
-        }
-        
-        .info-grid {
-            display: grid;
-            grid-template-columns: 140px 1fr;
-            gap: 12px;
-            align-items: start;
-        }
-        
-        .label {
-            font-weight: 600;
-            color: var(--vscode-descriptionForeground);
-        }
-        
-        .value {
-            color: var(--vscode-foreground);
-        }
-        
-        .description {
-            background-color: var(--vscode-textBlockQuote-background);
-            border-left: 4px solid var(--vscode-textBlockQuote-border);
-            padding: 15px;
-            border-radius: 4px;
-            margin-top: 10px;
-        }
-        
-        .description h3 {
-            margin-top: 15px;
-            margin-bottom: 8px;
-            color: var(--vscode-foreground);
-        }
-        
-        .description p {
-            margin-bottom: 10px;
-        }
-        
-        .description ul, .description ol {
-            margin-left: 20px;
-            margin-bottom: 10px;
-        }
-        
-        .description code {
-            background-color: var(--vscode-textCodeBlock-background);
-            padding: 2px 6px;
-            border-radius: 3px;
-            font-family: var(--vscode-editor-font-family);
-        }
-        
-        .empty-state {
-            color: var(--vscode-descriptionForeground);
-            font-style: italic;
-        }
-    </style>
-</head>
-<body>
-    <div class="header">
-        <div>
-            <span class="id-badge">#${workPackage.id}</span>
-            <span style="color: var(--vscode-descriptionForeground);">${typeName}</span>
-        </div>
-        <h1>${workPackage.subject}</h1>
-    </div>
-    
-    <div class="info-section">
-        <h2>📋 Основна інформація</h2>
-        <div class="info-grid">
-            <div class="label">Проект:</div>
-            <div class="value">${projectName}</div>
-            
-            <div class="label">Тип:</div>
-            <div class="value">${typeName}</div>
-            
-            <div class="label">Статус:</div>
-            <div class="value">${statusName}</div>
-            
-            <div class="label">Пріоритет:</div>
-            <div class="value">${priorityName}</div>
-            
-            <div class="label">Виконавець:</div>
-            <div class="value">${assigneeName}</div>
-        </div>
-    </div>
-
-    ${workPackage.description?.html ? `
-        <div class="info-section">
-            <h2>📝 Опис</h2>
-            <div class="description">
-                ${workPackage.description.html}
-            </div>
-        </div>
-    ` : `
-        <div class="info-section">
-            <h2>📝 Опис</h2>
-            <div class="empty-state">Опис відсутній</div>
-        </div>
-    `}
-</body>
-</html>`;
-}
 function deactivate() {
-    console.log('OpenProject розширення деактивовано');
+    console.log("OpenProject extension deactivated");
 }
 //# sourceMappingURL=extension.js.map

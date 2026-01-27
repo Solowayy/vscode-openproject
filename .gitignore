@@ -1,14 +1,18 @@
-# Node
-node_modules/
-dist/
-npm-debug.log
-yarn-error.log
+out
+dist
+node_modules
+.vscode-test/
+*.vsix
+.vscode/settings.json
 
-# TypeScript
-*.tsbuildinfo
+# OS files
+.DS_Store
+Thumbs.db
 
-# VSCode
-.vscode/
+# Logs
+logs
+*.log
+npm-debug.log*
 
 # Env files
 .env
