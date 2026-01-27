@@ -12,3 +12,5 @@ yarn-error.log
 
 # Env files
 .env
+
+.out
