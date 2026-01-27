@@ -1,0 +1,181 @@
+/* Base styles */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: var(--vscode-font-family);
+    padding: 20px;
+    color: var(--vscode-foreground);
+    background-color: var(--vscode-editor-background);
+    line-height: 1.6;
+}
+
+/* Header */
+.header {
+    border-bottom: 2px solid var(--vscode-panel-border);
+    padding-bottom: 15px;
+    margin-bottom: 25px;
+}
+
+h1 {
+    color: var(--vscode-editor-foreground);
+    font-size: 24px;
+    margin-bottom: 5px;
+}
+
+/* Badges */
+.id-badge {
+    display: inline-block;
+    background-color: var(--vscode-badge-background);
+    color: var(--vscode-badge-foreground);
+    padding: 2px 8px;
+    border-radius: 3px;
+    font-size: 12px;
+    font-weight: bold;
+    margin-right: 10px;
+}
+
+/* Info Section */
+.info-section {
+    background-color: var(--vscode-editor-background);
+    border: 1px solid var(--vscode-panel-border);
+    border-radius: 6px;
+    padding: 20px;
+    margin-bottom: 20px;
+}
+
+.info-section h2 {
+    color: var(--vscode-foreground);
+    font-size: 16px;
+    margin-bottom: 15px;
+    border-bottom: 1px solid var(--vscode-panel-border);
+    padding-bottom: 8px;
+}
+
+.info-grid {
+    display: grid;
+    grid-template-columns: 140px 1fr;
+    gap: 12px;
+    align-items: start;
+}
+
+.label {
+    font-weight: 600;
+    color: var(--vscode-descriptionForeground);
+}
+
+.value {
+    color: var(--vscode-foreground);
+}
+
+/* Description */
+.description {
+    background-color: var(--vscode-textBlockQuote-background);
+    border-left: 4px solid var(--vscode-textBlockQuote-border);
+    padding: 15px;
+    border-radius: 4px;
+    margin-top: 10px;
+}
+
+.description h3 {
+    margin-top: 15px;
+    margin-bottom: 8px;
+    color: var(--vscode-foreground);
+}
+
+.description p {
+    margin-bottom: 10px;
+}
+
+.description ul,
+.description ol {
+    margin-left: 20px;
+    margin-bottom: 10px;
+}
+
+.description code {
+    background-color: var(--vscode-textCodeBlock-background);
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-family: var(--vscode-editor-font-family);
+}
+
+.empty-state {
+    color: var(--vscode-descriptionForeground);
+    font-style: italic;
+}
+
+/* Actions */
+.actions {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 20px;
+    gap: 10px;
+}
+
+.btn {
+    padding: 6px 14px;
+    border: none;
+    border-radius: 2px;
+    cursor: pointer;
+    font-family: var(--vscode-font-family);
+    font-size: 13px;
+}
+
+.btn-primary {
+    background-color: var(--vscode-button-background);
+    color: var(--vscode-button-foreground);
+}
+
+.btn-primary:hover {
+    background-color: var(--vscode-button-hoverBackground);
+}
+
+.btn-secondary {
+    background-color: var(--vscode-button-secondaryBackground);
+    color: var(--vscode-button-secondaryForeground);
+}
+
+.btn-secondary:hover {
+    background-color: var(--vscode-button-secondaryHoverBackground);
+}
+
+/* Form Styles */
+.form-group {
+    margin-bottom: 15px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: 600;
+    color: var(--vscode-foreground);
+}
+
+.form-control {
+    width: 100%;
+    padding: 8px;
+    background-color: var(--vscode-input-background);
+    color: var(--vscode-input-foreground);
+    border: 1px solid var(--vscode-input-border);
+    border-radius: 2px;
+    font-family: var(--vscode-font-family);
+}
+
+.form-control:focus {
+    outline: 1px solid var(--vscode-focusBorder);
+    border-color: var(--vscode-focusBorder);
+}
+
+textarea.form-control {
+    min-height: 100px;
+    resize: vertical;
+}
+
+/* Utils */
+.hidden {
+    display: none;
+}

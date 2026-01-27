@@ -1,0 +1,119 @@
+{
+  "name": "vscode-openproject",
+  "displayName": "OpenProject Rocnikovy",
+  "description": "OpenProject integration for VSCode",
+  "version": "0.1.0",
+  "publisher": "Soloway",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "configuration": {
+      "title": "OpenProject",
+      "properties": {
+        "openproject.url": {
+          "type": "string",
+          "default": "",
+          "description": "The URL of your OpenProject instance"
+        },
+        "openproject.apiKey": {
+          "type": "string",
+          "default": "",
+          "description": "API Key for OpenProject"
+        }
+      }
+    },
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "openproject-explorer",
+          "title": "OpenProject",
+          "icon": "resources/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "openproject-explorer": [
+        {
+          "id": "openproject.projectsView",
+          "name": "Projects"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "openproject.configure",
+        "title": "Configure OpenProject",
+        "icon": "$(settings-gear)"
+      },
+      {
+        "command": "openproject.refresh",
+        "title": "Refresh",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "openproject.openWorkPackage",
+        "title": "Open Work Package"
+      },
+      {
+        "command": "openproject.createWorkPackage",
+        "title": "Create Work Package",
+        "icon": "$(add)"
+      },
+      {
+        "command": "openproject.createChildWorkPackage",
+        "title": "Create Child Task",
+        "icon": "$(add)"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "openproject.refresh",
+          "when": "view == openproject.projectsView",
+          "group": "navigation@1"
+        },
+        {
+          "command": "openproject.configure",
+          "when": "view == openproject.projectsView",
+          "group": "navigation@2"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "openproject.createWorkPackage",
+          "when": "view == openproject.projectsView && viewItem == project",
+          "group": "inline"
+        },
+        {
+          "command": "openproject.createChildWorkPackage",
+          "when": "view == openproject.projectsView && viewItem == workpackage_summary",
+          "group": "inline"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile && npm run lint",
+    "lint": "eslint src --ext ts",
+    "test": "node ./out/test/runTest.js"
+  },
+  "devDependencies": {
+    "@types/node": "^20.x",
+    "@types/vscode": "^1.85.0",
+    "@typescript-eslint/eslint-plugin": "^6.x",
+    "@typescript-eslint/parser": "^6.x",
+    "eslint": "^8.x",
+    "typescript": "^5.3.0"
+  },
+  "dependencies": {
+    "axios": "^1.6.0"
+  }
+}
