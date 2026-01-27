@@ -63,3 +63,23 @@ export interface WorkPackage {
     };
     _type: string;
 }
+
+export interface Status {
+    id: number;
+    name: string;
+    _links: HALLinks;
+}
+
+export interface Type {
+    id: number;
+    name: string;
+    _links: HALLinks;
+}
+
+export interface User {
+    id: number;
+    name: string;
+    login: string;
+    admin: boolean;
+    _links: HALLinks;
+}
