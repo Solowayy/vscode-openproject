@@ -14,15 +14,5 @@ logs
 *.log
 npm-debug.log*
 
-<<<<<<< HEAD
-# Editor directories and files
-.idea
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
-=======
 # Env files
 .env
->>>>>>> origin/backend

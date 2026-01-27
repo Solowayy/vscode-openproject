@@ -123,9 +123,10 @@ class ApiClient {
     }
     // Methods to get available types, statuses, and priorities
     // Types: Task=1, Milestone=2, Summary task=3, Feature=4, Epic=5, User story=6, Bug=7
-    async getTypes() {
+    async getTypes(projectId) {
         try {
-            const response = await this.client.get('/api/v3/types');
+            const url = projectId ? `/api/v3/projects/${projectId}/types` : '/api/v3/types';
+            const response = await this.client.get(url);
             const types = response.data._embedded?.elements || [];
             return types.map((type) => ({
                 id: type.id,

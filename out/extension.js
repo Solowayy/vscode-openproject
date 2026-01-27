@@ -121,43 +121,6 @@ async function activate(context) {
         }
         workPackageWebview_1.WorkPackageWebviewManager.createOrShow(context.extensionUri, fullWorkPackage);
     });
-    function convertToId(converted, category) {
-        if (category === 'type') {
-            if (converted === "Task")
-                return 1;
-            if (converted === "Milestone")
-                return 2;
-            if (converted === "Summary task")
-                return 3;
-        }
-        if (category === 'status') {
-            if (converted === "New")
-                return 1;
-            if (converted === "To be scheduled")
-                return 5;
-            if (converted === "Scheduled")
-                return 6;
-            if (converted === "In Progress")
-                return 7;
-            if (converted === "Closed")
-                return 12;
-            if (converted === "On hold")
-                return 13;
-            if (converted === "Rejected")
-                return 14;
-        }
-        if (category === 'priority') {
-            if (converted === "Low")
-                return 7;
-            if (converted === "Normal")
-                return 8;
-            if (converted === "High")
-                return 9;
-            if (converted === "Immediate")
-                return 10;
-        }
-        return -1;
-    }
     const createWorkPackageCommand = vscode.commands.registerCommand("openproject.createWorkPackage", async (treeItem) => {
         let project = treeItem?.project;
         // 1. Determine the Project
@@ -177,29 +140,23 @@ async function activate(context) {
             }
             project = selectedProject.project;
         }
-        // 2. Determine the Type, Status, Priority
-        const typeInput = await vscode.window.showQuickPick(["Task", "Milestone", "Summary task"], { placeHolder: "Select a type" });
-        const statusInput = await vscode.window.showQuickPick([
-            "New",
-            "To be scheduled",
-            "Scheduled",
-            "In Progress",
-            "Closed",
-            "On hold",
-            "Rejected",
-        ], { placeHolder: "Select a status" });
-        const priorityInput = await vscode.window.showQuickPick(["Low", "Normal", "High", "Immediate"], { placeHolder: "Select a priority" });
-        if (!typeInput || !statusInput || !priorityInput) {
+        // 2. Fetch available options dynamically
+        const types = await apiClient_1.apiClient.getTypes(project.id);
+        const statuses = await apiClient_1.apiClient.getStatuses();
+        const priorities = await apiClient_1.apiClient.getPriorities();
+        // 3. Determine the Type, Status, Priority
+        const selectedType = await vscode.window.showQuickPick(types.map(t => ({ label: t.name, id: t.id })), { placeHolder: "Select a type" });
+        if (!selectedType)
             return;
-        }
-        // Convert names to IDs
-        const typeId = convertToId(typeInput, 'type');
-        const statusId = convertToId(statusInput, 'status');
-        const priorityId = convertToId(priorityInput, 'priority');
-        if (typeId === -1 || statusId === -1 || priorityId === -1) {
-            vscode.window.showErrorMessage('Invalid type, status, or priority selected');
+        const selectedStatus = await vscode.window.showQuickPick(statuses.map(s => ({ label: s.name, id: s.id })), { placeHolder: "Select a status" });
+        if (!selectedStatus)
             return;
-        }
+        const selectedPriority = await vscode.window.showQuickPick(priorities.map(p => ({ label: p.name, id: p.id })), { placeHolder: "Select a priority" });
+        if (!selectedPriority)
+            return;
+        const typeId = selectedType.id;
+        const statusId = selectedStatus.id;
+        const priorityId = selectedPriority.id;
         // 3. Get Subject
         const subject = await vscode.window.showInputBox({
             prompt: "Enter work package subject",
@@ -256,28 +213,23 @@ async function activate(context) {
             vscode.window.showErrorMessage("Could not determine project context");
             return;
         }
-        // 1. Determine Type, Status, Priority (Same as createWorkPackage)
-        const typeInput = await vscode.window.showQuickPick(["Task", "Milestone", "Summary task"], { placeHolder: "Select a type" });
-        const statusInput = await vscode.window.showQuickPick([
-            "New",
-            "To be scheduled",
-            "Scheduled",
-            "In Progress",
-            "Closed",
-            "On hold",
-            "Rejected",
-        ], { placeHolder: "Select a status" });
-        const priorityInput = await vscode.window.showQuickPick(["Low", "Normal", "High", "Immediate"], { placeHolder: "Select a priority" });
-        if (!typeInput || !statusInput || !priorityInput) {
+        // 1. Fetch Options Dynamically
+        const types = await apiClient_1.apiClient.getTypes(project.id);
+        const statuses = await apiClient_1.apiClient.getStatuses();
+        const priorities = await apiClient_1.apiClient.getPriorities();
+        // 2. Select Type, Status, Priority
+        const selectedType = await vscode.window.showQuickPick(types.map(t => ({ label: t.name, id: t.id })), { placeHolder: "Select a type" });
+        if (!selectedType)
             return;
-        }
-        const typeId = convertToId(typeInput, 'type');
-        const statusId = convertToId(statusInput, 'status');
-        const priorityId = convertToId(priorityInput, 'priority');
-        if (typeId === -1 || statusId === -1 || priorityId === -1) {
-            vscode.window.showErrorMessage('Invalid type, status, or priority selected');
+        const selectedStatus = await vscode.window.showQuickPick(statuses.map(s => ({ label: s.name, id: s.id })), { placeHolder: "Select a status" });
+        if (!selectedStatus)
             return;
-        }
+        const selectedPriority = await vscode.window.showQuickPick(priorities.map(p => ({ label: p.name, id: p.id })), { placeHolder: "Select a priority" });
+        if (!selectedPriority)
+            return;
+        const typeId = selectedType.id;
+        const statusId = selectedStatus.id;
+        const priorityId = selectedPriority.id;
         // 2. Get Subject
         const subject = await vscode.window.showInputBox({
             prompt: `Enter sub-task subject (Parent: #${parentWorkPackage.id})`,
