@@ -291,10 +291,60 @@ async function activate(context) {
             return false;
         }
     });
+    const filterWorkPackagesCommand = vscode.commands.registerCommand("openproject.filterWorkPackage", async () => {
+        const selection = await vscode.window.showQuickPick([
+            { label: "$(list-ordered) Filter by ID", detail: "id", description: "Filter by work package number" },
+            { label: "$(list-flat) Filter by Type", detail: "type", description: "Filter by work package type" },
+            { label: "$(text-size) Filter by Text", detail: "text", description: "Filter by subject text" },
+            { label: "$(close) Standard", detail: "none", description: "Clear filters" }
+        ], {
+            placeHolder: "Select filter type"
+        });
+        if (!selection) {
+            return;
+        }
+        if (selection.detail === "none") {
+            projectTreeProvider.setFilter("none");
+            return;
+        }
+        let value;
+        if (selection.detail === "type") {
+            // Try to fetch types from the first available project to show options
+            try {
+                const projects = await apiClient_1.apiClient.getProjects();
+                if (projects.length > 0) {
+                    const types = await apiClient_1.apiClient.getTypes(projects[0].id);
+                    const sortedTypes = types.map(t => ({ label: t.name })).sort((a, b) => a.label.localeCompare(b.label));
+                    const selectedType = await vscode.window.showQuickPick(sortedTypes, {
+                        placeHolder: "Select Work Package Type"
+                    });
+                    value = selectedType?.label;
+                }
+            }
+            catch (error) {
+                console.error("Failed to fetch types for filter", error);
+            }
+            // Fallback if no projects or error
+            if (!value) {
+                if (!value && (!apiClient_1.apiClient.isConfigured())) {
+                    value = await vscode.window.showInputBox({ prompt: "Enter type name" });
+                }
+            }
+        }
+        else {
+            value = await vscode.window.showInputBox({
+                prompt: selection.detail === "id" ? "Enter Work Package ID" : "Enter text to search",
+                placeHolder: selection.detail === "id" ? "e.g. 1234" : "search term..."
+            });
+        }
+        if (value) {
+            projectTreeProvider.setFilter(selection.detail, value);
+        }
+    });
     // Register all commands
     context.subscriptions.push(configureCommand, refreshCommand, 
     //debugIdsCommand,
-    openWorkPackageCommand, createWorkPackageCommand, updateWorkPackageCommand);
+    openWorkPackageCommand, createWorkPackageCommand, updateWorkPackageCommand, filterWorkPackagesCommand);
     const config = vscode.workspace.getConfiguration("openproject");
     if (config.get("url") && config.get("apiKey")) {
         apiClient_1.apiClient.initialize().then((success) => {

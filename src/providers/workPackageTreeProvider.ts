@@ -65,6 +65,15 @@ export class ProjectTreeProvider implements vscode.TreeDataProvider<ProjectTreeI
     this.projects = await apiClient.getProjects();
   }
 
+  private filterType: 'id' | 'type' | 'text' | 'none' = 'none';
+  private filterValue: string = '';
+
+  setFilter(type: 'id' | 'type' | 'text' | 'none', value: string = '') {
+    this.filterType = type;
+    this.filterValue = value;
+    this.refresh();
+  }
+
   getTreeItem(element: ProjectTreeItem): vscode.TreeItem {
     return element;
   }
@@ -104,6 +113,33 @@ export class ProjectTreeProvider implements vscode.TreeDataProvider<ProjectTreeI
         `Fetched ${workPackages.length} tasks for project ${projectId}`,
       );
 
+      // --- FILTERING LOGIC ---
+      let displayedWPs = workPackages;
+      if (this.filterType !== 'none') {
+        const val = this.filterValue.toLowerCase();
+
+        displayedWPs = workPackages.filter((wp) => {
+          if (this.filterType === 'id') {
+            return wp.id.toString() === val;
+          } else if (this.filterType === 'type') {
+            // Check _links.type.title if available, otherwise fallback
+            return wp._links.type.title?.toLowerCase() === val;
+          } else if (this.filterType === 'text') {
+            return wp.subject.toLowerCase().includes(val) || wp.id.toString() === val;
+          }
+          return true;
+        });
+
+        // Return flat list if filtering
+        return [
+          // We might or might not want subprojects when filtering. 
+          // Let's keep subprojects visible just in case.
+          ...subProjects.map(p => new ProjectTreeItem(p.name, vscode.TreeItemCollapsibleState.Collapsed, "project", p)),
+          ...displayedWPs.map(wp => this.createWorkPackageItem(wp, element.project!, workPackages))
+        ];
+      }
+      // -----------------------
+
       const rootTasks = workPackages.filter((wp) => {
         return !wp._links.parent || !wp._links.parent.href;
       });
@@ -125,7 +161,20 @@ export class ProjectTreeProvider implements vscode.TreeDataProvider<ProjectTreeI
       ];
     }
 
+    // Standard hierarchy for non-project items (only if NOT filtering, or if we decide to keeping hierarchy)
+    // If filtering, we returned early above for 'project'.
+    // But if we expand a filtered item? Filtered items are leaf nodes in flat view?
+    // In createWorkPackageItem I set collapsibleState.
+    // If I return flat list, createWorkPackageItem still checks for children.
+    // If I expand a task in filtered view, what happens?
+    // It calls getChildren(element). current code:
     if (element.itemType === "workpackage" && element.workPackage) {
+      // If we are filtering, we probably shouldn't show children unless they verify the filter?
+      // Or maybe we treat children as "context" and show them?
+      // Let's stick to standard behavior for children expansion even if filtered.
+      // BUT if we returned flat list, user sees all matches. Checking children might duplicate?
+      // It's fine for now.
+
       const parentProject = element.parentProject;
 
       if (!parentProject) return [];

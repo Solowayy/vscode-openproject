@@ -68,6 +68,11 @@
         "command": "openproject.createChildWorkPackage",
         "title": "Create Child Task",
         "icon": "$(add)"
+      },
+      {
+        "command": "openproject.filterWorkPackage",
+        "title": "Filter",
+        "icon": "$(filter)"
       }
     ],
     "menus": {
@@ -78,9 +83,14 @@
           "group": "navigation@1"
         },
         {
-          "command": "openproject.configure",
+          "command": "openproject.filterWorkPackage",
           "when": "view == openproject.projectsView",
           "group": "navigation@2"
+        },
+        {
+          "command": "openproject.configure",
+          "when": "view == openproject.projectsView",
+          "group": "navigation@3"
         }
       ],
       "view/item/context": [
