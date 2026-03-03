@@ -1,8 +1,6 @@
 import * as vscode from "vscode";
-import {
-    ProjectTreeProvider,
-    ProjectTreeItem,
-} from "./providers/workPackageTreeProvider";
+import {ProjectTreeProvider} from "./providers/projectTreeProvider";
+import { ProjectTreeItem } from "./providers/projectTreeItem";
 import { apiClient } from "./api/apiClient";
 import { WorkPackage, Project } from "./api/types";
 import { WorkPackageWebviewManager } from "./views/workPackageWebview";
