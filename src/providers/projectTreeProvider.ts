@@ -4,6 +4,7 @@ import { WorkPackage, Project } from "../api/types";
 import { ProjectTreeItem } from "./projectTreeItem";
 
 export class ProjectTreeProvider implements vscode.TreeDataProvider<ProjectTreeItem> {
+
   private _onDidChangeTreeData: vscode.EventEmitter<ProjectTreeItem | undefined | null> = new vscode.EventEmitter();
   readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
 
@@ -15,14 +16,18 @@ export class ProjectTreeProvider implements vscode.TreeDataProvider<ProjectTreeI
   // Public API
 
   refresh(): void {
+
     this.wpCache.clear();
     this.ensureApiInitialized().then(() => this._onDidChangeTreeData.fire(null));
+
   }
 
   setFilter(type: 'id' | 'type' | 'text' | 'none', value: string = ''): void {
+
     this.filterType = type;
     this.filterValue = value;
     this.refresh();
+
   }
 
   getTreeItem(element: ProjectTreeItem): vscode.TreeItem {
@@ -30,6 +35,7 @@ export class ProjectTreeProvider implements vscode.TreeDataProvider<ProjectTreeI
   }
 
   async getChildren(element?: ProjectTreeItem): Promise<ProjectTreeItem[]> {
+
     if (!apiClient.isConfigured()) {
       return ProjectTreeItem.forMessage("Failed to connect");
     }
@@ -47,18 +53,22 @@ export class ProjectTreeProvider implements vscode.TreeDataProvider<ProjectTreeI
     }
 
     return [];
+
   }
 
   // Tree Building
 
   // Returns root-level projects
   private async getTopLevelItems(): Promise<ProjectTreeItem[]> {
+
     const projects = await apiClient.getProjects();
     return projects.map((p) => ProjectTreeItem.forProject(p));
+
   }
 
   // Returns sub-projects and work packages for a given project
   private async getProjectChildren(project: Project): Promise<ProjectTreeItem[]> {
+
     const [subProjects, allWorkPackages] = await Promise.all([
       apiClient.getProjects(project.id),
       apiClient.getWorkPackages(project.id),
@@ -73,10 +83,12 @@ export class ProjectTreeProvider implements vscode.TreeDataProvider<ProjectTreeI
     console.log(`Showing ${workPackagesToShow.length} work packages`);
 
     return this.buildProjectChildrenItems(subProjects, workPackagesToShow, project, allWorkPackages);
+
   }
 
   // Returns direct children of a work package item
   private getWorkPackageChildren(element: ProjectTreeItem): ProjectTreeItem[] {
+
     if (!element.workPackage || !element.parentProject) {
       return [];
     }
@@ -89,12 +101,14 @@ export class ProjectTreeProvider implements vscode.TreeDataProvider<ProjectTreeI
     return children.map((ch) =>
       ProjectTreeItem.forWorkPackage(ch, element.allProjectWorkPackages, element.parentProject),
     );
+
   }
 
   // Filtering
 
   // Filters work packages based on the current filter type and value
   private filterWorkPackages(workPackages: WorkPackage[]): WorkPackage[] {
+
     const val = this.filterValue.toLowerCase();
 
     return workPackages.filter((wp) => {
@@ -105,6 +119,7 @@ export class ProjectTreeProvider implements vscode.TreeDataProvider<ProjectTreeI
         default: return true;
       }
     });
+
   }
 
   // Returns only work packages that have no parent (root level)
@@ -121,18 +136,22 @@ export class ProjectTreeProvider implements vscode.TreeDataProvider<ProjectTreeI
     parentProject: Project,
     allWorkPackages: WorkPackage[],
   ): ProjectTreeItem[] {
+
     return [
       ...subProjects.map((p) => ProjectTreeItem.forProject(p)),
       ...workPackagesToShow.map((wp) =>
         ProjectTreeItem.forWorkPackage(wp, allWorkPackages, parentProject),
       ),
     ];
+
   }
 
   // Ensures the API client is initialized before use
   private async ensureApiInitialized(): Promise<void> {
+
     if (!apiClient.isConfigured()) {
       await apiClient.initialize();
     }
   }
+  
 }

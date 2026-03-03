@@ -1,457 +1,412 @@
 import * as vscode from "vscode";
-import {ProjectTreeProvider} from "./providers/projectTreeProvider";
+import { ProjectTreeProvider } from "./providers/projectTreeProvider";
 import { ProjectTreeItem } from "./providers/projectTreeItem";
 import { apiClient } from "./api/apiClient";
 import { WorkPackage, Project } from "./api/types";
 import { WorkPackageWebviewManager } from "./views/workPackageWebview";
 
+// Entry Point
+
 export async function activate(context: vscode.ExtensionContext) {
+    
     console.log("OpenProject extension activated");
-    const projectTreeProvider = new ProjectTreeProvider();
+
+    const treeProvider = new ProjectTreeProvider();
 
     const treeView = vscode.window.createTreeView("openproject.projectsView", {
-        treeDataProvider: projectTreeProvider,
+        treeDataProvider: treeProvider,
         showCollapseAll: true,
     });
 
     context.subscriptions.push(treeView);
 
-    // Connection config
-    const configureCommand = vscode.commands.registerCommand(
-        "openproject.configure",
-        async () => {
-            const url = await vscode.window.showInputBox({
-                prompt: "Enter your OpenProject URL",
-                placeHolder: "https://your-openproject.com",
-                value: vscode.workspace.getConfiguration("openproject").get("url"),
-                validateInput: (value) => {
-                    if (!value) {
-                        return "URL cannot be empty";
-                    }
-                    if (!value.startsWith("http")) {
-                        return "URL must start with http or https";
-                    }
-                    return null;
-                },
-            });
-
-            if (!url) {
-                return;
-            }
-
-            const apiKey = await vscode.window.showInputBox({
-                prompt: "Enter your API Key",
-                password: true,
-                value: vscode.workspace.getConfiguration("openproject").get("apiKey"),
-                validateInput: (value) => {
-                    if (!value) {
-                        return "API Key cannot be empty";
-                    }
-                    return null;
-                },
-            });
-
-            if (!apiKey) {
-                return;
-            }
-
-            // Save config
-            const config = vscode.workspace.getConfiguration("openproject");
-            await config.update("url", url, vscode.ConfigurationTarget.Global);
-            await config.update("apiKey", apiKey, vscode.ConfigurationTarget.Global);
-
-            // Init client
-            const success = await apiClient.initialize();
-            if (success) {
-                vscode.window.showInformationMessage(
-                    "✅ OpenProject configured successfully!",
-                );
-                projectTreeProvider.refresh();
-            } else {
-                vscode.window.showErrorMessage("❌ Failed to connect to OpenProject");
-            }
-        },
-    );
-
-    // Refresh Tree
-    const refreshCommand = vscode.commands.registerCommand(
-        "openproject.refresh",
-        () => {
-            vscode.window.showInformationMessage("🔄 Refreshing data...");
-            projectTreeProvider.refresh();
-        },
-    );
-
-    // Debug command to show actual IDs
-    const debugIdsCommand = vscode.commands.registerCommand(
-        "openproject.debugIds",
-        async () => {
-            const types = await apiClient.getTypes();
-            const statuses = await apiClient.getStatuses();
-            const priorities = await apiClient.getPriorities();
-
-            console.log("=== TYPES ===");
-            types.forEach(t => console.log(`${t.name}: ID = ${t.id}`));
-
-            console.log("=== STATUSES ===");
-            statuses.forEach(s => console.log(`${s.name}: ID = ${s.id}`));
-
-            console.log("=== PRIORITIES ===");
-            priorities.forEach(p => console.log(`${p.name}: ID = ${p.id}`));
-
-            vscode.window.showInformationMessage(
-                `Check console for IDs. Types: ${types.length}, Statuses: ${statuses.length}, Priorities: ${priorities.length}`
-            );
-        },
-    );
-
-    // Open Work Package
-    const openWorkPackageCommand = vscode.commands.registerCommand(
-        "openproject.openWorkPackage",
-        async (workPackage: WorkPackage) => {
-            const fullWorkPackage = await apiClient.getWorkPackage(workPackage.id);
-
-            if (!fullWorkPackage) {
-                vscode.window.showErrorMessage("Failed to load work package");
-                return;
-            }
-            WorkPackageWebviewManager.createOrShow(
-                context.extensionUri,
-                fullWorkPackage,
-            );
-        },
-    );
-
-    const createWorkPackageCommand = vscode.commands.registerCommand(
-        "openproject.createWorkPackage",
-        async (treeItem?: ProjectTreeItem) => {
-            let project: Project | undefined = treeItem?.project;
-
-            // 1. Determine the Project
-            if (!project) {
-                const projects = await apiClient.getProjects();
-
-                if (projects.length === 0) {
-                    vscode.window.showWarningMessage("No projects available");
-                    return;
-                }
-
-                const selectedProject = await vscode.window.showQuickPick(
-                    projects.map((p) => ({
-                        label: p.name,
-                        description: p.identifier,
-                        project: p,
-                    })),
-                    { placeHolder: "Select a project" },
-                );
-
-                if (!selectedProject) {
-                    return; // User cancelled
-                }
-
-                project = selectedProject.project;
-            }
-
-            // 2. Fetch available options dynamically
-            const types = await apiClient.getTypes(project.id);
-            const statuses = await apiClient.getStatuses();
-            const priorities = await apiClient.getPriorities();
-
-            // 3. Determine the Type, Status, Priority
-            const selectedType = await vscode.window.showQuickPick(
-                types.map(t => ({ label: t.name, id: t.id })),
-                { placeHolder: "Select a type" },
-            );
-            if (!selectedType) return;
-
-            const selectedStatus = await vscode.window.showQuickPick(
-                statuses.map(s => ({ label: s.name, id: s.id })),
-                { placeHolder: "Select a status" },
-            );
-            if (!selectedStatus) return;
-
-            const selectedPriority = await vscode.window.showQuickPick(
-                priorities.map(p => ({ label: p.name, id: p.id })),
-                { placeHolder: "Select a priority" },
-            );
-            if (!selectedPriority) return;
-
-            const typeId = selectedType.id;
-            const statusId = selectedStatus.id;
-            const priorityId = selectedPriority.id;
-
-            // 3. Get Subject
-            const subject = await vscode.window.showInputBox({
-                prompt: "Enter work package subject",
-                placeHolder: "Task title...",
-                validateInput: (value) => {
-                    if (!value || value.trim().length === 0) {
-                        return "Subject cannot be empty";
-                    }
-                    return null;
-                },
-            });
-
-            if (!subject) {
-                return;
-            }
-
-            // 4. Get Description (Optional)
-            const description = await vscode.window.showInputBox({
-                prompt: "Enter description (optional)",
-                placeHolder: "Task description...",
-            });
-
-            // 5. Get Assignee
-            const users = await apiClient.getUsers();
-
-            // Allow user to select assignee or skip
-            const selectedAssignee = await vscode.window.showQuickPick(
-                [
-                    { label: "$(circle-slash) Unassigned", user: undefined },
-                    ...users.map(u => ({ label: `$(account) ${u.name}`, user: u }))
-                ],
-                { placeHolder: "Select Assignee (Optional)" }
-            );
-
-            // 6. Call API
-            const created = await apiClient.createWorkPackage({
-                projectId: project.id,
-                type: typeId.toString(),
-                status: statusId.toString(),
-                priority: priorityId.toString(),
-                subject: subject.trim(),
-                description: description?.trim(),
-                assignee: selectedAssignee?.user ? { id: selectedAssignee.user.id, href: selectedAssignee.user.href } : undefined,
-            });
-
-            if (created) {
-                vscode.window.showInformationMessage(
-                    `✅ Work package "${subject}" created!`,
-                );
-                projectTreeProvider.refresh();
-            } else {
-                vscode.window.showErrorMessage("❌ Failed to create work package");
-            }
-        },
-    );
-
-    const createChildWorkPackageCommand = vscode.commands.registerCommand(
-        "openproject.createChildWorkPackage",
-        async (treeItem?: ProjectTreeItem) => {
-            if (!treeItem || !treeItem.workPackage) {
-                vscode.window.showErrorMessage("Please select a parent task first");
-                return;
-            }
-
-            const parentWorkPackage = treeItem.workPackage;
-            // Project should be in parentProject for workpackage items
-            const project = treeItem.parentProject || treeItem.project;
-
-            if (!project) {
-                vscode.window.showErrorMessage("Could not determine project context");
-                return;
-            }
-
-            // 1. Fetch Options Dynamically
-            const types = await apiClient.getTypes(project.id);
-            const statuses = await apiClient.getStatuses();
-            const priorities = await apiClient.getPriorities();
-
-            // 2. Select Type, Status, Priority
-            const selectedType = await vscode.window.showQuickPick(
-                types.map(t => ({ label: t.name, id: t.id })),
-                { placeHolder: "Select a type" },
-            );
-            if (!selectedType) return;
-
-            const selectedStatus = await vscode.window.showQuickPick(
-                statuses.map(s => ({ label: s.name, id: s.id })),
-                { placeHolder: "Select a status" },
-            );
-            if (!selectedStatus) return;
-
-            const selectedPriority = await vscode.window.showQuickPick(
-                priorities.map(p => ({ label: p.name, id: p.id })),
-                { placeHolder: "Select a priority" },
-            );
-            if (!selectedPriority) return;
-
-            const typeId = selectedType.id;
-            const statusId = selectedStatus.id;
-            const priorityId = selectedPriority.id;
-
-            // 2. Get Subject
-            const subject = await vscode.window.showInputBox({
-                prompt: `Enter sub-task subject (Parent: #${parentWorkPackage.id})`,
-                placeHolder: "Sub-task title...",
-                validateInput: (value) => {
-                    if (!value || value.trim().length === 0) {
-                        return "Subject cannot be empty";
-                    }
-                    return null;
-                },
-            });
-
-            if (!subject) return;
-
-            // 3. Get Description
-            const description = await vscode.window.showInputBox({
-                prompt: "Enter description (optional)",
-                placeHolder: "Task description...",
-            });
-
-            // 4. Get Assignee
-            const users = await apiClient.getUsers();
-
-            const selectedAssignee = await vscode.window.showQuickPick(
-                [
-                    { label: "$(circle-slash) Unassigned", user: undefined },
-                    ...users.map(u => ({ label: `$(account) ${u.name}`, user: u }))
-                ],
-                { placeHolder: "Select Assignee (Optional)" }
-            );
-
-            // 5. Call API with parentId
-            const created = await apiClient.createWorkPackage({
-                projectId: project.id,
-                type: typeId.toString(),
-                status: statusId.toString(),
-                priority: priorityId.toString(),
-                subject: subject.trim(),
-                description: description?.trim(),
-                assignee: selectedAssignee?.user ? { id: selectedAssignee.user.id, href: selectedAssignee.user.href } : undefined,
-                parentId: parentWorkPackage.id
-            });
-
-            if (created) {
-                vscode.window.showInformationMessage(
-                    `✅ Child task "${subject}" created under #${parentWorkPackage.id}!`,
-                );
-                projectTreeProvider.refresh();
-            } else {
-                vscode.window.showErrorMessage("❌ Failed to create child work package");
-            }
-        },
-    );
-
-    const updateWorkPackageCommand = vscode.commands.registerCommand(
-        "openproject.updateWorkPackage",
-        async (
-            workPackageId: number,
-            updateData: {
-                subject?: string;
-                description?: string;
-                statusId?: string;
-                typeId?: string;
-                priorityId?: string;
-            },
-        ) => {
-            if (!workPackageId) {
-                vscode.window.showErrorMessage("Work package ID is required");
-                return;
-            }
-
-            // Call API to update work package
-            const success = await apiClient.updateWorkPackage(
-                workPackageId,
-                updateData,
-            );
-
-            if (success) {
-                vscode.window.showInformationMessage(
-                    `✅ Work package #${workPackageId} updated successfully!`,
-                );
-                // Refresh tree view to show updated data
-                projectTreeProvider.refresh();
-                return true;
-            } else {
-                vscode.window.showErrorMessage(
-                    `❌ Failed to update work package #${workPackageId}`,
-                );
-                return false;
-            }
-        },
-    );
-
-    const filterWorkPackagesCommand = vscode.commands.registerCommand(
-        "openproject.filterWorkPackage",
-        async () => {
-            const selection = await vscode.window.showQuickPick([
-                { label: "$(list-ordered) Filter by ID", detail: "id", description: "Filter by work package number" },
-                { label: "$(list-flat) Filter by Type", detail: "type", description: "Filter by work package type" },
-                { label: "$(text-size) Filter by Text", detail: "text", description: "Filter by subject text" },
-                { label: "$(close) Standard", detail: "none", description: "Clear filters" }
-            ], {
-                placeHolder: "Select filter type"
-            });
-
-            if (!selection) {
-                return;
-            }
-
-            if (selection.detail === "none") {
-                projectTreeProvider.setFilter("none");
-                return;
-            }
-
-            let value: string | undefined;
-
-            if (selection.detail === "type") {
-                // Try to fetch types from the first available project to show options
-                try {
-                    const projects = await apiClient.getProjects();
-                    if (projects.length > 0) {
-                        const types = await apiClient.getTypes(projects[0].id);
-                        const sortedTypes = types.map(t => ({ label: t.name })).sort((a, b) => a.label.localeCompare(b.label));
-                        const selectedType = await vscode.window.showQuickPick(sortedTypes, {
-                            placeHolder: "Select Work Package Type"
-                        });
-                        value = selectedType?.label;
-                    }
-                } catch (error) {
-                    console.error("Failed to fetch types for filter", error);
-                }
-
-                // Fallback if no projects or error
-                if (!value) {
-                    if (!value && (!apiClient.isConfigured())) {
-                        value = await vscode.window.showInputBox({ prompt: "Enter type name" });
-                    }
-                }
-            } else {
-                value = await vscode.window.showInputBox({
-                    prompt: selection.detail === "id" ? "Enter Work Package ID" : "Enter text to search",
-                    placeHolder: selection.detail === "id" ? "e.g. 1234" : "search term..."
-                });
-            }
-
-            if (value) {
-                projectTreeProvider.setFilter(selection.detail as "id" | "type" | "text", value);
-            }
-        }
-    );
-    // Register all commands
     context.subscriptions.push(
-        configureCommand,
-        refreshCommand,
-        //debugIdsCommand,
-        openWorkPackageCommand,
-        createWorkPackageCommand,
-        updateWorkPackageCommand,
-        filterWorkPackagesCommand,
+        vscode.commands.registerCommand("openproject.configure", () => configureCommand(treeProvider)),
+        vscode.commands.registerCommand("openproject.refresh", () => refreshCommand(treeProvider)),
+        vscode.commands.registerCommand("openproject.openWorkPackage", (wp: WorkPackage) => openWorkPackageCommand(context, wp)),
+        vscode.commands.registerCommand("openproject.createWorkPackage", (item?: ProjectTreeItem) => createWorkPackageCommand(treeProvider, item)),
+        vscode.commands.registerCommand("openproject.createChildWorkPackage", (item?: ProjectTreeItem) => createChildWorkPackageCommand(treeProvider, item)),
+        vscode.commands.registerCommand("openproject.updateWorkPackage", (id: number, data: WorkPackageUpdateData) => updateWorkPackageCommand(treeProvider, id, data)),
+        vscode.commands.registerCommand("openproject.filterWorkPackage", () => filterWorkPackagesCommand(treeProvider)),
     );
+
+    autoInitializeIfConfigured(treeProvider);
+
+}
+
+export function deactivate() {
+    console.log("OpenProject extension deactivated");
+}
+
+// Types 
+
+interface WorkPackageUpdateData {
+    subject?: string;
+    description?: string;
+    statusId?: string;
+    typeId?: string;
+    priorityId?: string;
+}
+
+// Commands
+
+// Prompts the user for URL and API key, saves config, and initializes the client
+async function configureCommand(treeProvider: ProjectTreeProvider): Promise<void> {
+    
+    const url = await promptUrl();
+    if (!url) return;
+
+    const apiKey = await promptApiKey();
+    if (!apiKey) return;
+
+    await saveConfiguration(url, apiKey);
+
+    const success = await apiClient.initialize();
+    if (success) {
+        vscode.window.showInformationMessage("OpenProject configured successfully!");
+        treeProvider.refresh();
+    } else {
+        vscode.window.showErrorMessage("Failed to connect to OpenProject");
+    }
+
+}
+
+// Refreshes the tree view
+function refreshCommand(treeProvider: ProjectTreeProvider): void {
+
+    vscode.window.showInformationMessage("Refreshing data...");
+    treeProvider.refresh();
+
+}
+
+// Opens a work package in a webview panel
+async function openWorkPackageCommand(context: vscode.ExtensionContext, workPackage: WorkPackage): Promise<void> {
+    
+    const fullWorkPackage = await apiClient.getWorkPackage(workPackage.id);
+
+    if (!fullWorkPackage) {
+        vscode.window.showErrorMessage("Failed to load work package");
+        return;
+    }
+
+    WorkPackageWebviewManager.createOrShow(context.extensionUri, fullWorkPackage);
+
+}
+
+// Creates a new top-level work package. Prompts for project if not provided by tree item
+async function createWorkPackageCommand(treeProvider: ProjectTreeProvider, treeItem?: ProjectTreeItem): Promise<void> {
+   
+    const project = treeItem?.project ?? await pickProject();
+    if (!project) return;
+
+    const options = await fetchWorkPackageOptions(project.id);
+    if (!options) return;
+
+    const subject = await promptSubject("Task title...");
+    if (!subject) return;
+
+    const description = await promptDescription();
+    const assignee = await pickAssignee();
+
+    const created = await apiClient.createWorkPackage({
+        projectId: project.id,
+        type: options.typeId.toString(),
+        status: options.statusId.toString(),
+        priority: options.priorityId.toString(),
+        subject: subject.trim(),
+        description: description?.trim(),
+        assignee: assignee ? { id: assignee.id, href: assignee.href } : undefined,
+    });
+
+    if (created) {
+        vscode.window.showInformationMessage(`Work package "${subject}" created!`);
+        treeProvider.refresh();
+    } else {
+        vscode.window.showErrorMessage("Failed to create work package");
+    }
+
+}
+
+// Creates a child work package under an existing one
+async function createChildWorkPackageCommand(treeProvider: ProjectTreeProvider, treeItem?: ProjectTreeItem): Promise<void> {
+    
+    if (!treeItem?.workPackage) {
+        vscode.window.showErrorMessage("Please select a parent task first");
+        return;
+    }
+
+    const parentWorkPackage = treeItem.workPackage;
+    const project = treeItem.parentProject ?? treeItem.project;
+
+    if (!project) {
+        vscode.window.showErrorMessage("Could not determine project context");
+        return;
+    }
+
+    const options = await fetchWorkPackageOptions(project.id);
+    if (!options) return;
+
+    const subject = await promptSubject(`Sub-task title... (Parent: #${parentWorkPackage.id})`);
+    if (!subject) return;
+
+    const description = await promptDescription();
+    const assignee = await pickAssignee();
+
+    const created = await apiClient.createWorkPackage({
+        projectId: project.id,
+        type: options.typeId.toString(),
+        status: options.statusId.toString(),
+        priority: options.priorityId.toString(),
+        subject: subject.trim(),
+        description: description?.trim(),
+        assignee: assignee ? { id: assignee.id, href: assignee.href } : undefined,
+        parentId: parentWorkPackage.id,
+    });
+
+    if (created) {
+        vscode.window.showInformationMessage(`Child task "${subject}" created under #${parentWorkPackage.id}`);
+        treeProvider.refresh();
+    } else {
+        vscode.window.showErrorMessage("Failed to create child work package");
+    }
+}
+
+// Updates an existing work package with new data
+async function updateWorkPackageCommand(
+    treeProvider: ProjectTreeProvider,
+    workPackageId: number,
+    updateData: WorkPackageUpdateData,
+): Promise<boolean> {
+
+    if (!workPackageId) {
+        vscode.window.showErrorMessage("Work package ID is required");
+        return false;
+    }
+
+    const success = await apiClient.updateWorkPackage(workPackageId, updateData);
+
+    if (success) {
+        vscode.window.showInformationMessage(`Work package #${workPackageId} updated successfully!`);
+        treeProvider.refresh();
+        return true;
+    } else {
+        vscode.window.showErrorMessage(`Failed to update work package #${workPackageId}`);
+        return false;
+    }
+
+}
+
+// Shows a filter picker and applies the selected filter to the tree view
+async function filterWorkPackagesCommand(treeProvider: ProjectTreeProvider): Promise<void> {
+
+    const filterOptions = [
+        { label: "$(list-ordered) Filter by ID", detail: "id", description: "Filter by work package number" },
+        { label: "$(list-flat) Filter by Type", detail: "type", description: "Filter by work package type" },
+        { label: "$(text-size) Filter by Text", detail: "text", description: "Filter by subject text" },
+        { label: "$(close) Standard", detail: "none", description: "Clear filters" },
+    ];
+
+    const selection = await vscode.window.showQuickPick(filterOptions, {
+        placeHolder: "Select filter type",
+    });
+
+    if (!selection) return;
+
+    if (selection.detail === "none") {
+        treeProvider.setFilter("none");
+        return;
+    }
+
+    const value = await resolveFilterValue(selection.detail);
+    if (value) {
+        treeProvider.setFilter(selection.detail as "id" | "type" | "text", value);
+    }
+
+}
+
+// UI Helpers
+
+// Prompts user to select a project from the list
+async function pickProject(): Promise<Project | undefined> {
+
+    const projects = await apiClient.getProjects();
+
+    if (projects.length === 0) {
+        vscode.window.showWarningMessage("No projects available");
+        return undefined;
+    }
+
+    const selected = await vscode.window.showQuickPick(
+        projects.map((p) => ({ label: p.name, description: p.identifier, project: p })),
+        { placeHolder: "Select a project" },
+    );
+
+    return selected?.project;
+
+}
+
+// Fetches type/status/priority options and prompts the user to select each
+async function fetchWorkPackageOptions(projectId: number): Promise<{typeId: number; statusId: number; priorityId: number} | undefined> {
+    
+    const [types, statuses, priorities] = await Promise.all([
+        apiClient.getTypes(projectId),
+        apiClient.getStatuses(),
+        apiClient.getPriorities(),
+    ]);
+
+    const selectedType = await vscode.window.showQuickPick(
+        types.map(t => ({ label: t.name, id: t.id })),
+        { placeHolder: "Select a type" },
+    );
+    if (!selectedType) return undefined;
+
+    const selectedStatus = await vscode.window.showQuickPick(
+        statuses.map(s => ({ label: s.name, id: s.id })),
+        { placeHolder: "Select a status" },
+    );
+    if (!selectedStatus) return undefined;
+
+    const selectedPriority = await vscode.window.showQuickPick(
+        priorities.map(p => ({ label: p.name, id: p.id })),
+        { placeHolder: "Select a priority" },
+    );
+    if (!selectedPriority) return undefined;
+
+    return {
+        typeId: selectedType.id,
+        statusId: selectedStatus.id,
+        priorityId: selectedPriority.id,
+    };
+
+}
+
+// Prompts user to pick or skip an assignee. Returns the selected user or undefined
+async function pickAssignee(): Promise<{ id: number; href: string } | undefined> {
+
+    const users = await apiClient.getUsers();
+
+    const selected = await vscode.window.showQuickPick(
+        [
+            { label: "$(circle-slash) Unassigned", user: undefined },
+            ...users.map(u => ({ label: `$(account) ${u.name}`, user: u })),
+        ],
+        { placeHolder: "Select Assignee (Optional)" },
+    );
+
+    return selected?.user ? { id: selected.user.id, href: selected.user.href } : undefined;
+
+}
+
+// Prompts user to enter a subject line for a work package
+async function promptSubject(placeholder: string): Promise<string | undefined> {
+
+    return vscode.window.showInputBox({
+        prompt: "Enter work package subject",
+        placeHolder: placeholder,
+        validateInput: (value) =>
+            (!value || value.trim().length === 0) ? "Subject cannot be empty" : null,
+    });
+
+}
+
+// Prompts user to enter an optional description
+async function promptDescription(): Promise<string | undefined> {
+
+    return vscode.window.showInputBox({
+        prompt: "Enter description (optional)",
+        placeHolder: "Task description...",
+    });
+
+}
+
+// Prompts user to enter the OpenProject server URL
+async function promptUrl(): Promise<string | undefined> {
+
+    return vscode.window.showInputBox({
+        prompt: "Enter your OpenProject URL",
+        placeHolder: "https://your-openproject.com",
+        value: vscode.workspace.getConfiguration("openproject").get("url"),
+        validateInput: (value) => {
+            if (!value) return "URL cannot be empty";
+            if (!value.startsWith("http")) return "URL must start with http or https";
+            return null;
+        },
+    });
+
+}
+
+// Prompts user to enter their API key
+async function promptApiKey(): Promise<string | undefined> {
+
+    return vscode.window.showInputBox({
+        prompt: "Enter your API Key",
+        password: true,
+        value: vscode.workspace.getConfiguration("openproject").get("apiKey"),
+        validateInput: (value) => (!value ? "API Key cannot be empty" : null),
+    });
+
+}
+
+// Resolves the filter value based on filter type (shows type picker or input box)
+async function resolveFilterValue(filterType: string): Promise<string | undefined> {
+
+    if (filterType === "type") {
+        return pickTypeFilterValue();
+    }
+
+    return vscode.window.showInputBox({
+        prompt: filterType === "id" ? "Enter Work Package ID" : "Enter text to search",
+        placeHolder: filterType === "id" ? "e.g. 1234" : "search term...",
+    });
+
+}
+
+// Fetches available types and lets the user pick one as a filter value
+async function pickTypeFilterValue(): Promise<string | undefined> {
+
+    try {
+        const projects = await apiClient.getProjects();
+        if (projects.length > 0) {
+            const types = await apiClient.getTypes(projects[0].id);
+            const sortedTypes = types
+                .map(t => ({ label: t.name }))
+                .sort((a, b) => a.label.localeCompare(b.label));
+
+            const selected = await vscode.window.showQuickPick(sortedTypes, {
+                placeHolder: "Select Work Package Type",
+            });
+            return selected?.label;
+        }
+    } catch (error) {
+        console.error("Failed to fetch types for filter", error);
+    }
+
+    // Fallback to manual input
+    return vscode.window.showInputBox({ prompt: "Enter type name" });
+
+}
+
+// Initialization
+
+// Auto-initializes the API client if credentials are already saved
+function autoInitializeIfConfigured(treeProvider: ProjectTreeProvider): void {
 
     const config = vscode.workspace.getConfiguration("openproject");
     if (config.get("url") && config.get("apiKey")) {
         apiClient.initialize().then((success) => {
             if (success) {
-                projectTreeProvider.refresh();
+                treeProvider.refresh();
             }
         });
     }
+
 }
 
-export function deactivate() {
-    console.log("OpenProject extension deactivated");
+// Persists the URL and API key to VS Code global settings
+async function saveConfiguration(url: string, apiKey: string): Promise<void> {
+
+    const config = vscode.workspace.getConfiguration("openproject");
+    await config.update("url", url, vscode.ConfigurationTarget.Global);
+    await config.update("apiKey", apiKey, vscode.ConfigurationTarget.Global);
+
 }
