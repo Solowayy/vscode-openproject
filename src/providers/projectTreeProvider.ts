@@ -62,7 +62,18 @@ export class ProjectTreeProvider implements vscode.TreeDataProvider<ProjectTreeI
   private async getTopLevelItems(): Promise<ProjectTreeItem[]> {
 
     const projects = await apiClient.getProjects();
-    return projects.map((p) => ProjectTreeItem.forProject(p));
+
+    const config = vscode.workspace.getConfiguration("openproject");
+    const visibleProjects = config.get<string[]>("visibleProjects") || [];
+
+    let filteredProjects = projects;
+    if (visibleProjects.length > 0) {
+      filteredProjects = projects.filter((p) =>
+        visibleProjects.includes(p.name) || visibleProjects.includes(p.id.toString())
+      );
+    }
+
+    return filteredProjects.map((p) => ProjectTreeItem.forProject(p));
 
   }
 
@@ -153,5 +164,5 @@ export class ProjectTreeProvider implements vscode.TreeDataProvider<ProjectTreeI
       await apiClient.initialize();
     }
   }
-  
+
 }

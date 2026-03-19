@@ -8,7 +8,7 @@ import { WorkPackageWebviewManager } from "./views/workPackageWebview";
 // Entry Point
 
 export async function activate(context: vscode.ExtensionContext) {
-    
+
     console.log("OpenProject extension activated");
 
     const treeProvider = new ProjectTreeProvider();
@@ -28,6 +28,15 @@ export async function activate(context: vscode.ExtensionContext) {
         vscode.commands.registerCommand("openproject.createChildWorkPackage", (item?: ProjectTreeItem) => createChildWorkPackageCommand(treeProvider, item)),
         vscode.commands.registerCommand("openproject.updateWorkPackage", (id: number, data: WorkPackageUpdateData) => updateWorkPackageCommand(treeProvider, id, data)),
         vscode.commands.registerCommand("openproject.filterWorkPackage", () => filterWorkPackagesCommand(treeProvider)),
+        vscode.commands.registerCommand("openproject.selectVisibleProjects", () => selectVisibleProjectsCommand(treeProvider)),
+    );
+
+    context.subscriptions.push(
+        vscode.workspace.onDidChangeConfiguration(e => {
+            if (e.affectsConfiguration("openproject.visibleProjects")) {
+                treeProvider.refresh();
+            }
+        })
     );
 
     autoInitializeIfConfigured(treeProvider);
@@ -52,7 +61,7 @@ interface WorkPackageUpdateData {
 
 // Prompts the user for URL and API key, saves config, and initializes the client
 async function configureCommand(treeProvider: ProjectTreeProvider): Promise<void> {
-    
+
     const url = await promptUrl();
     if (!url) return;
 
@@ -81,7 +90,7 @@ function refreshCommand(treeProvider: ProjectTreeProvider): void {
 
 // Opens a work package in a webview panel
 async function openWorkPackageCommand(context: vscode.ExtensionContext, workPackage: WorkPackage): Promise<void> {
-    
+
     const fullWorkPackage = await apiClient.getWorkPackage(workPackage.id);
 
     if (!fullWorkPackage) {
@@ -95,7 +104,7 @@ async function openWorkPackageCommand(context: vscode.ExtensionContext, workPack
 
 // Creates a new top-level work package. Prompts for project if not provided by tree item
 async function createWorkPackageCommand(treeProvider: ProjectTreeProvider, treeItem?: ProjectTreeItem): Promise<void> {
-   
+
     const project = treeItem?.project ?? await pickProject();
     if (!project) return;
 
@@ -129,7 +138,7 @@ async function createWorkPackageCommand(treeProvider: ProjectTreeProvider, treeI
 
 // Creates a child work package under an existing one
 async function createChildWorkPackageCommand(treeProvider: ProjectTreeProvider, treeItem?: ProjectTreeItem): Promise<void> {
-    
+
     if (!treeItem?.workPackage) {
         vscode.window.showErrorMessage("Please select a parent task first");
         return;
@@ -224,6 +233,39 @@ async function filterWorkPackagesCommand(treeProvider: ProjectTreeProvider): Pro
 
 }
 
+// Shows a quick pick to select which projects should be visible
+async function selectVisibleProjectsCommand(treeProvider: ProjectTreeProvider): Promise<void> {
+
+    const projects = await apiClient.getProjects();
+
+    if (projects.length === 0) {
+        vscode.window.showWarningMessage("No projects available");
+        return;
+    }
+
+    const config = vscode.workspace.getConfiguration("openproject");
+    const currentVisible = config.get<string[]>("visibleProjects") || [];
+
+    const items: vscode.QuickPickItem[] = projects.map((p) => ({
+        label: p.name,
+        description: `ID: ${p.id}`,
+        picked: currentVisible.length === 0 || currentVisible.includes(p.name) || currentVisible.includes(p.id.toString())
+    }));
+
+    const selectedItems = await vscode.window.showQuickPick(items, {
+        canPickMany: true,
+        placeHolder: "Select projects to display (leave empty or select all to show all)",
+    });
+
+    if (selectedItems) {
+        const selectedNames = selectedItems.map((item) => item.label);
+        const newConfigValue = selectedNames.length === projects.length ? [] : selectedNames;
+
+        await config.update("visibleProjects", newConfigValue, vscode.ConfigurationTarget.Global);
+    }
+
+}
+
 // UI Helpers
 
 // Prompts user to select a project from the list
@@ -246,8 +288,8 @@ async function pickProject(): Promise<Project | undefined> {
 }
 
 // Fetches type/status/priority options and prompts the user to select each
-async function fetchWorkPackageOptions(projectId: number): Promise<{typeId: number; statusId: number; priorityId: number} | undefined> {
-    
+async function fetchWorkPackageOptions(projectId: number): Promise<{ typeId: number; statusId: number; priorityId: number } | undefined> {
+
     const [types, statuses, priorities] = await Promise.all([
         apiClient.getTypes(projectId),
         apiClient.getStatuses(),
