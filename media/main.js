@@ -52,13 +52,21 @@
       description: inputDescription ? inputDescription.value : "",
     };
 
-    if (selectStatus && selectStatus.value && selectStatus.value.trim() !== "") {
+    if (
+      selectStatus &&
+      selectStatus.value &&
+      selectStatus.value.trim() !== ""
+    ) {
       data.statusId = selectStatus.value;
     }
     if (selectType && selectType.value && selectType.value.trim() !== "") {
       data.typeId = selectType.value;
     }
-    if (selectPriority && selectPriority.value && selectPriority.value.trim() !== "") {
+    if (
+      selectPriority &&
+      selectPriority.value &&
+      selectPriority.value.trim() !== ""
+    ) {
       data.priorityId = selectPriority.value;
     }
 
