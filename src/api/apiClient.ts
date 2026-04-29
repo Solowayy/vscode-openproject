@@ -10,7 +10,7 @@ import {
 } from "./types";
 
 export class ApiClient {
-    private client: Axios.AxiosInstance;
+    private client: import("axios").AxiosInstance;//Axios.AxiosInstance;
     private config: OpenProjectConfig | null = null;
 
     constructor() {
