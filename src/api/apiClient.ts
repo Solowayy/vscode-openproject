@@ -99,7 +99,7 @@ export class ApiClient {
     public async getWorkPackage(id: number): Promise<WorkPackage | null> {
         try {
             const response = await this.client.get<WorkPackage>(
-                `api/v3/work_packages/${id}`,
+                `/api/v3/work_packages/${id}`,
             );
             return response.data;
         } catch (exception) {
@@ -183,6 +183,7 @@ export class ApiClient {
         assignee?: { id: number; href: string };
         parentId?: number;
     }): Promise<boolean> {
+
         try {
             const payload: any = {
                 subject: data.subject,
@@ -271,6 +272,7 @@ export class ApiClient {
             priorityId?: string;
         },
     ): Promise<boolean> {
+
         try {
             // Fetch the current work package to get lockVersion
             const currentWP = await this.getWorkPackage(workPackageId);

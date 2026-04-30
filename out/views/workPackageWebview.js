@@ -35,6 +35,7 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.WorkPackageWebviewManager = void 0;
 const vscode = __importStar(require("vscode"));
+const apiClient_1 = require("../api/apiClient");
 class WorkPackageWebviewManager {
     static async createOrShow(extensionUri, workPackage) {
         const panel = vscode.window.createWebviewPanel("workPackageDetail", `#${workPackage.id} - ${workPackage.subject}`, vscode.ViewColumn.One, {
@@ -42,7 +43,7 @@ class WorkPackageWebviewManager {
             retainContextWhenHidden: true,
             localResourceRoots: [vscode.Uri.joinPath(extensionUri, "media")],
         });
-        const { apiClient } = require("../api/apiClient");
+        // const { apiClient } = require("../api/apiClient");
         // Extract Project ID from _links.project.href (e.g. "/api/v3/projects/1")
         let projectId;
         if (workPackage._links && workPackage._links.project && workPackage._links.project.href) {
@@ -52,9 +53,9 @@ class WorkPackageWebviewManager {
             }
         }
         const [types, statuses, priorities] = await Promise.all([
-            apiClient.getTypes(projectId),
-            apiClient.getStatuses(),
-            apiClient.getPriorities()
+            apiClient_1.apiClient.getTypes(projectId),
+            apiClient_1.apiClient.getStatuses(),
+            apiClient_1.apiClient.getPriorities()
         ]);
         panel.webview.html = this.getHtmlForWebview(panel.webview, extensionUri, workPackage, types, statuses, priorities);
         // Handle messages from the webview
@@ -125,10 +126,10 @@ class WorkPackageWebviewManager {
                 
                 <div class="label">Status:</div>
                 <div class="value">${statusName}</div>
-                
+
                 <div class="label">Priority:</div>
                 <div class="value">${priorityName}</div>
-                
+
                 <div class="label">Assignee:</div>
                 <div class="value">${assigneeName}</div>
             </div>

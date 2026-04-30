@@ -35,10 +35,13 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.activate = activate;
 exports.deactivate = deactivate;
+require("module-alias/register");
 const vscode = __importStar(require("vscode"));
 const workPackageTreeProvider_1 = require("./providers/workPackageTreeProvider");
 const apiClient_1 = require("./api/apiClient");
 const workPackageWebview_1 = require("./views/workPackageWebview");
+const gitlabClient_1 = require("./api/gitlabClient");
+const mrMonitorService_1 = require("./services/mrMonitorService");
 async function activate(context) {
     console.log("OpenProject extension activated");
     const projectTreeProvider = new workPackageTreeProvider_1.ProjectTreeProvider();
@@ -339,6 +342,22 @@ async function activate(context) {
         }
         if (value) {
             projectTreeProvider.setFilter(selection.detail, value);
+        }
+    });
+    // GitLab monitor
+    const mrMonitor = new mrMonitorService_1.MrMonitorService(context);
+    context.subscriptions.push(mrMonitor);
+    //TODO initialize GitLab Monitor
+    const configureGitLabCommand = vscode.commands.registerCommand("openproject.configureGitLab", async () => {
+        const url = await vscode.window.showInputBox({});
+    });
+    const pollNowCommand = vscode.commands.registerCommand("openproject.mrMonitor.pollNow", () => mrMonitor.pollNow());
+    const stopMonitorCommand = vscode.commands.registerCommand("openproject.mrMonitor.stop", () => { mrMonitor.stop(); vscode.window.showInformationMessage("MR monitor stopped"); });
+    const startMonitorCommand = vscode.commands.registerCommand("openproject.mrMonitor.start", () => { mrMonitor.start(); vscode.window.showInformationMessage("MR monitor started"); });
+    context.subscriptions.push(configureGitLabCommand, pollNowCommand, stopMonitorCommand, startMonitorCommand);
+    gitlabClient_1.gitLabClient.initialize().then(ok => {
+        if (ok) {
+            mrMonitor.start();
         }
     });
     // Register all commands

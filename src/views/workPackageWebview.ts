@@ -138,10 +138,10 @@ export class WorkPackageWebviewManager {
                 
                 <div class="label">Status:</div>
                 <div class="value">${statusName}</div>
-                
+
                 <div class="label">Priority:</div>
                 <div class="value">${priorityName}</div>
-                
+
                 <div class="label">Assignee:</div>
                 <div class="value">${assigneeName}</div>
             </div>
