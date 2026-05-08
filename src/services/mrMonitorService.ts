@@ -168,7 +168,7 @@ export class MrMonitorService implements vscode.Disposable {
                 const time = lastPolled
                     ? `Last polled: ${lastPolled.toLocaleTimeString()}`
                     : "Not yet polled";
-                this.statusBarItem.text = "${git-pull-request} MR monitor";
+                this.statusBarItem.text = "$(git-pull-request) MR monitor";
                 this.statusBarItem.tooltip = `${time}\nClick to poll now`;
             }
         }

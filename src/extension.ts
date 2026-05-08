@@ -1,11 +1,10 @@
-import 'module-alias/register';
 import * as vscode from "vscode";
 import { ProjectTreeProvider } from "./providers/projectTreeProvider";
 import { ProjectTreeItem } from "./providers/projectTreeItem";
 import { apiClient } from "./api/apiClient";
 import { WorkPackage, Project } from "./api/types";
 import { WorkPackageWebviewManager } from "./views/workPackageWebview";
-import { GitLabClient, gitLabClient } from "./api/gitlabClient";
+import { gitLabClient } from "./api/gitlabClient";
 import { MrMonitorService } from "./services/mrMonitorService";
 
 // Entry Point
@@ -41,6 +40,73 @@ export async function activate(context: vscode.ExtensionContext) {
             }
         })
     );
+
+    // GitLab MR Monitor
+    const mrMonitor = new MrMonitorService(context);
+    context.subscriptions.push(mrMonitor);
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand("openproject.configureGitLab", async () => {
+            const url = await vscode.window.showInputBox({
+                prompt: "Enter your GitLab URL",
+                placeHolder: "https://gitlab.com",
+                value: vscode.workspace.getConfiguration("openproject").get("gitlab.url"),
+                validateInput: (v) => {
+                    if (!v) return "URL cannot be empty";
+                    if (!v.startsWith("http")) return "URL must start with http or https";
+                    return null;
+                },
+            });
+            if (!url) return;
+
+            const token = await vscode.window.showInputBox({
+                prompt: "Enter your GitLab Personal Access Token",
+                password: true,
+                value: vscode.workspace.getConfiguration("openproject").get("gitlab.token"),
+                validateInput: (v) => (!v ? "Token cannot be empty" : null),
+            });
+            if (!token) return;
+
+            const projectIdStr = await vscode.window.showInputBox({
+                prompt: "Enter GitLab Project ID (numeric)",
+                placeHolder: "e.g. 12345",
+                value: vscode.workspace.getConfiguration("openproject").get<number>("gitlab.projectId")?.toString(),
+                validateInput: (v) => {
+                    if (!v) return "Project ID cannot be empty";
+                    if (isNaN(Number(v))) return "Must be a number";
+                    return null;
+                },
+            });
+            if (!projectIdStr) return;
+
+            const cfg = vscode.workspace.getConfiguration("openproject");
+            await cfg.update("gitlab.url", url, vscode.ConfigurationTarget.Global);
+            await cfg.update("gitlab.token", token, vscode.ConfigurationTarget.Global);
+            await cfg.update("gitlab.projectId", Number(projectIdStr), vscode.ConfigurationTarget.Global);
+
+            const ok = await gitLabClient.initialize();
+            if (ok) {
+                vscode.window.showInformationMessage("GitLab configured successfully!");
+                mrMonitor.start();
+            } else {
+                vscode.window.showErrorMessage("Failed to connect to GitLab");
+            }
+        }),
+        vscode.commands.registerCommand("openproject.mrMonitor.pollNow", () => mrMonitor.pollNow()),
+        vscode.commands.registerCommand("openproject.mrMonitor.stop", () => {
+            mrMonitor.stop();
+            vscode.window.showInformationMessage("MR monitor stopped");
+        }),
+        vscode.commands.registerCommand("openproject.mrMonitor.start", () => {
+            mrMonitor.start();
+            vscode.window.showInformationMessage("MR monitor started");
+        }),
+    );
+
+    // Auto-start GitLab monitor if already configured
+    gitLabClient.initialize().then(ok => {
+        if (ok) { mrMonitor.start(); }
+    });
 
     autoInitializeIfConfigured(treeProvider);
 
@@ -435,58 +501,6 @@ async function pickTypeFilterValue(): Promise<string | undefined> {
 
 // Auto-initializes the API client if credentials are already saved
 function autoInitializeIfConfigured(treeProvider: ProjectTreeProvider): void {
-    );
-
-    // GitLab monitor
-    const mrMonitor = new MrMonitorService(context);
-    context.subscriptions.push(mrMonitor);
-
-    //TODO initialize GitLab Monitor
-    const configureGitLabCommand = vscode.commands.registerCommand(
-        "openproject.configureGitLab",
-        async () => {
-            const url = await vscode.window.showInputBox({
-            })
-        }
-    );
-
-    const pollNowCommand = vscode.commands.registerCommand(
-        "openproject.mrMonitor.pollNow",
-        () => mrMonitor.pollNow(),
-    )
-
-    const stopMonitorCommand = vscode.commands.registerCommand(
-        "openproject.mrMonitor.stop",
-        () => { mrMonitor.stop(); vscode.window.showInformationMessage("MR monitor stopped");},
-    );
-
-    const startMonitorCommand = vscode.commands.registerCommand(
-        "openproject.mrMonitor.start",
-        () => { mrMonitor.start(); vscode.window.showInformationMessage("MR monitor started");},
-    )
-
-    context.subscriptions.push(
-        configureGitLabCommand,
-        pollNowCommand,
-        stopMonitorCommand,
-        startMonitorCommand,
-    );
-
-    gitLabClient.initialize().then(ok => {
-        if(ok) { mrMonitor.start(); }
-    });
-
-    // Register all commands
-    context.subscriptions.push(
-        configureCommand,
-        refreshCommand,
-        //debugIdsCommand,
-        openWorkPackageCommand,
-        createWorkPackageCommand,
-        updateWorkPackageCommand,
-        filterWorkPackagesCommand,
-    );
-
     const config = vscode.workspace.getConfiguration("openproject");
     if (config.get("url") && config.get("apiKey")) {
         apiClient.initialize().then((success) => {
