@@ -49,6 +49,8 @@ export interface WorkPackage {
   status: string;
   priority: string;
   subject: string;
+  lockVersion: number;
+  dueDate: Date;
   description?: {
     format: string;
     html: string;

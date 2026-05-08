@@ -1,9 +1,12 @@
+import 'module-alias/register';
 import * as vscode from "vscode";
 import { ProjectTreeProvider } from "./providers/projectTreeProvider";
 import { ProjectTreeItem } from "./providers/projectTreeItem";
 import { apiClient } from "./api/apiClient";
 import { WorkPackage, Project } from "./api/types";
 import { WorkPackageWebviewManager } from "./views/workPackageWebview";
+import { GitLabClient, gitLabClient } from "./api/gitlabClient";
+import { MrMonitorService } from "./services/mrMonitorService";
 
 // Entry Point
 
@@ -432,6 +435,57 @@ async function pickTypeFilterValue(): Promise<string | undefined> {
 
 // Auto-initializes the API client if credentials are already saved
 function autoInitializeIfConfigured(treeProvider: ProjectTreeProvider): void {
+    );
+
+    // GitLab monitor
+    const mrMonitor = new MrMonitorService(context);
+    context.subscriptions.push(mrMonitor);
+
+    //TODO initialize GitLab Monitor
+    const configureGitLabCommand = vscode.commands.registerCommand(
+        "openproject.configureGitLab",
+        async () => {
+            const url = await vscode.window.showInputBox({
+            })
+        }
+    );
+
+    const pollNowCommand = vscode.commands.registerCommand(
+        "openproject.mrMonitor.pollNow",
+        () => mrMonitor.pollNow(),
+    )
+
+    const stopMonitorCommand = vscode.commands.registerCommand(
+        "openproject.mrMonitor.stop",
+        () => { mrMonitor.stop(); vscode.window.showInformationMessage("MR monitor stopped");},
+    );
+
+    const startMonitorCommand = vscode.commands.registerCommand(
+        "openproject.mrMonitor.start",
+        () => { mrMonitor.start(); vscode.window.showInformationMessage("MR monitor started");},
+    )
+
+    context.subscriptions.push(
+        configureGitLabCommand,
+        pollNowCommand,
+        stopMonitorCommand,
+        startMonitorCommand,
+    );
+
+    gitLabClient.initialize().then(ok => {
+        if(ok) { mrMonitor.start(); }
+    });
+
+    // Register all commands
+    context.subscriptions.push(
+        configureCommand,
+        refreshCommand,
+        //debugIdsCommand,
+        openWorkPackageCommand,
+        createWorkPackageCommand,
+        updateWorkPackageCommand,
+        filterWorkPackagesCommand,
+    );
 
     const config = vscode.workspace.getConfiguration("openproject");
     if (config.get("url") && config.get("apiKey")) {

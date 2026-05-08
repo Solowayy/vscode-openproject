@@ -114,7 +114,7 @@ class ApiClient {
     }
     async getWorkPackage(id) {
         try {
-            const response = await this.client.get(`api/v3/work_packages/${id}`);
+            const response = await this.client.get(`/api/v3/work_packages/${id}`);
             return response.data;
         }
         catch (exception) {

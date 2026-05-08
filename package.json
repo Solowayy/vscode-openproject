@@ -1,4 +1,7 @@
 {
+  "_moduleAliases": {
+    "vscode": "./src/test/mocks/vscode.ts"
+  },
   "name": "vscode-openproject",
   "displayName": "OpenProject Rocnikovy",
   "description": "OpenProject integration for VSCode",
@@ -32,6 +35,26 @@
           },
           "default": [],
           "description": "List of project names or IDs to display. Leave empty to display all projects"
+        "openproject.gitlab.url": {
+          "type": "string",
+          "default": "",
+          "description": "GitLab instance URL (e.g. https://gitlab.com)"
+        },
+        "openproject.gitlab.token": {
+          "type": "string",
+          "default": "",
+          "description": "GitLab Personal Access Token with 'api' scope"
+        },
+        "openproject.gitlab.projectId": {
+          "type": "number",
+          "default": 0,
+          "description": "Numeric GitLab project ID (found under Settings → General in GitLab)"
+        },
+        "openproject.gitlab.pollIntervalSeconds": {
+          "type": "number",
+          "default": 60,
+          "minimum": 10,
+          "description": "How often (in seconds) the MR monitor polls GitLab for changes"
         }
       }
     },
@@ -47,6 +70,7 @@
     "views": {
       "openproject-explorer": [
         {
+          "icon": "",
           "id": "openproject.projectsView",
           "name": "Projects"
         }
@@ -86,6 +110,24 @@
         "command": "openproject.selectVisibleProjects",
         "title": "Select Visible Projects",
         "icon": "$(checklist)"
+        "command": "openproject.configureGitLab",
+        "title": "Configure GitLab",
+        "icon": "$(settings-gear)"
+      },
+      {
+        "command": "openproject.mrMonitor.pollNow",
+        "title": "Poll GitLab MRs Now",
+        "icon": "$(sync)"
+      },
+      {
+        "command": "openproject.mrMonitor.start",
+        "title": "Start MR Monitor",
+        "icon": "$(play)"
+      },
+      {
+        "command": "openproject.mrMonitor.stop",
+        "title": "Stop MR Monitor",
+        "icon": "$(debug-stop)"
       }
     ],
     "menus": {
@@ -131,14 +173,25 @@
     "watch": "tsc -watch -p ./",
     "pretest": "npm run compile && npm run lint",
     "lint": "eslint src --ext ts",
-    "test": "node ./out/test/runTest.js"
+    "test": "node ./out/test/runTest.js",
+    "test:unit": "tsc -p tsconfig.json && mocha"
   },
   "devDependencies": {
-    "@types/node": "^20.x",
+    "@types/axios-mock-adapter": "^1.9.0",
+    "@types/mocha": "^10.0.10",
+    "@types/nock": "^10.0.3",
+    "@types/node": "^20.19.39",
     "@types/vscode": "^1.85.0",
     "@typescript-eslint/eslint-plugin": "^6.x",
     "@typescript-eslint/parser": "^6.x",
+    "axios-mock-adapter": "^2.1.0",
     "eslint": "^8.x",
+    "mocha": "^11.7.5",
+    "module-alias": "^2.3.4",
+    "nock": "^14.0.13",
+    "ts-node": "^10.9.2",
+    "tsconfig-paths": "^4.2.0",
+    "tsx": "^4.21.0",
     "typescript": "^5.3.0"
   },
   "dependencies": {

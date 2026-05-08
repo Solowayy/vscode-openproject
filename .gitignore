@@ -16,3 +16,5 @@ npm-debug.log*
 
 # Env files
 .env
+
+.out
