@@ -28,6 +28,13 @@
           "default": "",
           "description": "API Key for OpenProject"
         },
+        "openproject.visibleProjects": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "List of project names or IDs to display. Leave empty to display all projects"
         "openproject.gitlab.url": {
           "type": "string",
           "default": "",
@@ -100,6 +107,9 @@
         "icon": "$(filter)"
       },
       {
+        "command": "openproject.selectVisibleProjects",
+        "title": "Select Visible Projects",
+        "icon": "$(checklist)"
         "command": "openproject.configureGitLab",
         "title": "Configure GitLab",
         "icon": "$(settings-gear)"
@@ -133,9 +143,14 @@
           "group": "navigation@2"
         },
         {
-          "command": "openproject.configure",
+          "command": "openproject.selectVisibleProjects",
           "when": "view == openproject.projectsView",
           "group": "navigation@3"
+        },
+        {
+          "command": "openproject.configure",
+          "when": "view == openproject.projectsView",
+          "group": "navigation@4"
         }
       ],
       "view/item/context": [
