@@ -1,3 +1,4 @@
+import 'module-alias/register';
 import * as vscode from "vscode";
 import {
     ProjectTreeProvider,
@@ -6,6 +7,8 @@ import {
 import { apiClient } from "./api/apiClient";
 import { WorkPackage, Project } from "./api/types";
 import { WorkPackageWebviewManager } from "./views/workPackageWebview";
+import { GitLabClient, gitLabClient } from "./api/gitlabClient";
+import { MrMonitorService } from "./services/mrMonitorService";
 
 export async function activate(context: vscode.ExtensionContext) {
     console.log("OpenProject extension activated");
@@ -433,6 +436,46 @@ export async function activate(context: vscode.ExtensionContext) {
             }
         }
     );
+
+    // GitLab monitor
+    const mrMonitor = new MrMonitorService(context);
+    context.subscriptions.push(mrMonitor);
+
+    //TODO initialize GitLab Monitor
+    const configureGitLabCommand = vscode.commands.registerCommand(
+        "openproject.configureGitLab",
+        async () => {
+            const url = await vscode.window.showInputBox({
+            })
+        }
+    );
+
+    const pollNowCommand = vscode.commands.registerCommand(
+        "openproject.mrMonitor.pollNow",
+        () => mrMonitor.pollNow(),
+    )
+
+    const stopMonitorCommand = vscode.commands.registerCommand(
+        "openproject.mrMonitor.stop",
+        () => { mrMonitor.stop(); vscode.window.showInformationMessage("MR monitor stopped");},
+    );
+
+    const startMonitorCommand = vscode.commands.registerCommand(
+        "openproject.mrMonitor.start",
+        () => { mrMonitor.start(); vscode.window.showInformationMessage("MR monitor started");},
+    )
+
+    context.subscriptions.push(
+        configureGitLabCommand,
+        pollNowCommand,
+        stopMonitorCommand,
+        startMonitorCommand,
+    );
+
+    gitLabClient.initialize().then(ok => {
+        if(ok) { mrMonitor.start(); }
+    });
+
     // Register all commands
     context.subscriptions.push(
         configureCommand,

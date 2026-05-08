@@ -35,14 +35,29 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.WorkPackageWebviewManager = void 0;
 const vscode = __importStar(require("vscode"));
+const apiClient_1 = require("../api/apiClient");
 class WorkPackageWebviewManager {
-    static createOrShow(extensionUri, workPackage) {
+    static async createOrShow(extensionUri, workPackage) {
         const panel = vscode.window.createWebviewPanel("workPackageDetail", `#${workPackage.id} - ${workPackage.subject}`, vscode.ViewColumn.One, {
             enableScripts: true,
             retainContextWhenHidden: true,
             localResourceRoots: [vscode.Uri.joinPath(extensionUri, "media")],
         });
-        panel.webview.html = this.getHtmlForWebview(panel.webview, extensionUri, workPackage);
+        // const { apiClient } = require("../api/apiClient");
+        // Extract Project ID from _links.project.href (e.g. "/api/v3/projects/1")
+        let projectId;
+        if (workPackage._links && workPackage._links.project && workPackage._links.project.href) {
+            const match = workPackage._links.project.href.match(/\/projects\/(\d+)/);
+            if (match) {
+                projectId = parseInt(match[1], 10);
+            }
+        }
+        const [types, statuses, priorities] = await Promise.all([
+            apiClient_1.apiClient.getTypes(projectId),
+            apiClient_1.apiClient.getStatuses(),
+            apiClient_1.apiClient.getPriorities()
+        ]);
+        panel.webview.html = this.getHtmlForWebview(panel.webview, extensionUri, workPackage, types, statuses, priorities);
         // Handle messages from the webview
         panel.webview.onDidReceiveMessage(async (message) => {
             switch (message.command) {
@@ -65,7 +80,7 @@ class WorkPackageWebviewManager {
             }
         }, undefined, []);
     }
-    static getHtmlForWebview(webview, extensionUri, workPackage) {
+    static getHtmlForWebview(webview, extensionUri, workPackage, types, statuses, priorities) {
         const styleUri = webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, "media", "style.css"));
         const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(extensionUri, "media", "main.js"));
         const statusName = workPackage._links.status?.title || "Unknown";
@@ -73,6 +88,9 @@ class WorkPackageWebviewManager {
         const projectName = workPackage._links.project?.title || "Unknown";
         const assigneeName = workPackage._links.assignee?.title || "Unassigned";
         const priorityName = workPackage._links.priority?.title || "Unknown";
+        const generateOptions = (items, currentName) => {
+            return items.map(item => `<option value="${item.id}" ${item.name === currentName ? "selected" : ""}>${item.name}</option>`).join('');
+        };
         return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -108,10 +126,10 @@ class WorkPackageWebviewManager {
                 
                 <div class="label">Status:</div>
                 <div class="value">${statusName}</div>
-                
+
                 <div class="label">Priority:</div>
                 <div class="value">${priorityName}</div>
-                
+
                 <div class="label">Assignee:</div>
                 <div class="value">${assigneeName}</div>
             </div>
@@ -153,28 +171,17 @@ class WorkPackageWebviewManager {
         <div class="info-grid form-group">
             <div class="label">Type</div>
             <select id="select-type" class="form-control">
-                <option value="1" ${typeName === "Task" ? "selected" : ""}>Task</option>
-                <option value="2" ${typeName === "Milestone" ? "selected" : ""}>Milestone</option>
-                <option value="3" ${typeName === "Summary task" ? "selected" : ""}>Summary task</option>
+                ${generateOptions(types, typeName)}
             </select>
 
             <div class="label">Status</div>
             <select id="select-status" class="form-control">
-                <option value="1" ${statusName === "New" ? "selected" : ""}>New</option>
-                <option value="5" ${statusName === "To be scheduled" ? "selected" : ""}>To be scheduled</option>
-                <option value="6" ${statusName === "Scheduled" ? "selected" : ""}>Scheduled</option>
-                <option value="7" ${statusName === "In Progress" ? "selected" : ""}>In Progress</option>
-                <option value="12" ${statusName === "Closed" ? "selected" : ""}>Closed</option>
-                <option value="13" ${statusName === "On hold" ? "selected" : ""}>On hold</option>
-                <option value="14" ${statusName === "Rejected" ? "selected" : ""}>Rejected</option>
+                ${generateOptions(statuses, statusName)}
             </select>
 
             <div class="label">Priority</div>
             <select id="select-priority" class="form-control">
-                 <option value="7" ${priorityName === "Low" ? "selected" : ""}>Low</option>
-                 <option value="8" ${priorityName === "Normal" ? "selected" : ""}>Normal</option>
-                 <option value="9" ${priorityName === "High" ? "selected" : ""}>High</option>
-                 <option value="10" ${priorityName === "Immediate" ? "selected" : ""}>Immediate</option>
+                 ${generateOptions(priorities, priorityName)}
             </select>
         </div>
 

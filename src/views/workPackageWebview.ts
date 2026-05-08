@@ -1,5 +1,6 @@
 import * as vscode from "vscode";
 import { WorkPackage } from "../api/types";
+import { apiClient } from "../api/apiClient";
 
 export class WorkPackageWebviewManager {
   public static async createOrShow(
@@ -17,7 +18,7 @@ export class WorkPackageWebviewManager {
       },
     );
 
-    const { apiClient } = require("../api/apiClient");
+    // const { apiClient } = require("../api/apiClient");
 
     // Extract Project ID from _links.project.href (e.g. "/api/v3/projects/1")
     let projectId: number | undefined;
@@ -137,10 +138,10 @@ export class WorkPackageWebviewManager {
                 
                 <div class="label">Status:</div>
                 <div class="value">${statusName}</div>
-                
+
                 <div class="label">Priority:</div>
                 <div class="value">${priorityName}</div>
-                
+
                 <div class="label">Assignee:</div>
                 <div class="value">${assigneeName}</div>
             </div>
