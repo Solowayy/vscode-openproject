@@ -50,7 +50,7 @@ export interface WorkPackage {
   priority: string;
   subject: string;
   lockVersion: number;
-  dueDate: Date;
+  dueDate: string | null;
   description?: {
     format: string;
     html: string;

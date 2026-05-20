@@ -270,6 +270,7 @@ export class ApiClient {
             statusId?: string;
             typeId?: string;
             priorityId?: string;
+            dueDate?: string | null;
         },
     ): Promise<boolean> {
 
@@ -335,6 +336,10 @@ export class ApiClient {
                         href: `/api/v3/priorities/${data.priorityId}`,
                     };
                 }
+            }
+
+            if(data.dueDate !== undefined){
+                payload.dueDate = data.dueDate || null;
             }
 
 
