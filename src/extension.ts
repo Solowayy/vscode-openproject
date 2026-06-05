@@ -589,32 +589,6 @@ async function promptApiKey(): Promise<string | undefined> {
 
 }
 
-// Prompts user to enter their GitLab URL
-async function promptGitLabUrl(): Promise<string | undefined> {
-
-    return vscode.window.showInputBox({
-        prompt: "Enter your GitLab URL",
-        placeHolder: "https://your-gitlab.com",
-        value: vscode.workspace.getConfiguration("openproject").get("Gitlab: Url"),
-        validateInput: (value) => {
-            if (!value) return "URL cannot be empty";
-            if (!value.startsWith("http")) return "URL must start with http or https";
-            return null;
-        },
-    });
-}
-
-// Prompts user to enter their GitLab Token
-async function promptGitLabToken(): Promise<string | undefined> {
-
-    return vscode.window.showInputBox({
-        prompt: "Enter your GitLab Token",
-        password: true,
-        value: vscode.workspace.getConfiguration("openproject").get("Gitlab: Token"),
-        validateInput: (value) => (!value ? "Token cannot be empty" : null),
-    });
-}
-
 // Resolves the filter value based on filter type (shows type picker or input box)
 async function resolveFilterValue(filterType: string): Promise<string | undefined> {
 
@@ -670,7 +644,7 @@ function autoInitializeIfConfigured(treeProvider: ProjectTreeProvider): void {
 }
 
 // Persists the URL and API key to VS Code global settings
-async function saveConfiguration(url: string, apiKey: string, gitlabURL: string, gitlabToken: string): Promise<void> {
+async function saveConfiguration(url: string, apiKey: string): Promise<void> {
 
     const config = vscode.workspace.getConfiguration("openproject");
     await config.update("url", url, vscode.ConfigurationTarget.Global);
