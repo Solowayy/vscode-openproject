@@ -126,7 +126,21 @@ export class ApiClient {
         }
     }
 
-    // Statuses: New=1, In specification=2, Specified=3, Confirmed=4, To be scheduled=5, Scheduled=6, In progress=7, Developed=8, In testing=9, Tested=10, Test failed=11, Closed=12, On hold=13, Rejected=14
+    // Statuses: 
+    // New=1 
+    // ,In specification=2 
+    // ,Specified=3 
+    // ,Confirmed=4 
+    // ,To be scheduled=5 
+    // ,Scheduled=6 
+    // ,In progress=7 
+    // ,Developed=8 
+    // ,In testing=9 
+    // ,Tested=10 
+    // ,Test failed=11 
+    // ,Closed=12 
+    // ,On hold=13 
+    // ,Rejected=14
     public async getStatuses(): Promise<Array<{ id: number; name: string; href: string }>> {
         try {
             const response = await this.client.get('/api/v3/statuses');
@@ -182,6 +196,8 @@ export class ApiClient {
         description?: string;
         assignee?: { id: number; href: string };
         parentId?: number;
+        dueDate?: string;
+        startDate?: string;
     }): Promise<boolean> {
 
         try {
@@ -229,6 +245,16 @@ export class ApiClient {
                 };
             }
 
+            // Add due date if provided
+            if (data.dueDate) {
+                payload.dueDate = data.dueDate;
+            }
+
+            // Add start date if provided
+            if (data.startDate) {
+                payload.startDate = data.startDate;
+            }
+
             console.log("Creating work package with payload:", JSON.stringify(payload, null, 2));
             const response = await this.client.post("/api/v3/work_packages", payload);
 
@@ -271,6 +297,7 @@ export class ApiClient {
             typeId?: string;
             priorityId?: string;
             dueDate?: string | null;
+            startDate?: string | null;
         },
     ): Promise<boolean> {
 
@@ -340,6 +367,10 @@ export class ApiClient {
 
             if(data.dueDate !== undefined){
                 payload.dueDate = data.dueDate || null;
+            }
+
+            if(data.startDate !== undefined){
+                payload.startDate = data.startDate || null;
             }
 
 

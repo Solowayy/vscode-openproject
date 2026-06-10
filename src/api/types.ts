@@ -51,6 +51,7 @@ export interface WorkPackage {
   subject: string;
   lockVersion: number;
   dueDate: string | null;
+  startDate: string | null;
   description?: {
     format: string;
     html: string;

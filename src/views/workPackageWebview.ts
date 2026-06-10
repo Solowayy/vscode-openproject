@@ -103,6 +103,17 @@ export class WorkPackageWebviewManager {
       ).join('');
     };
 
+    const isParent = workPackage._links.children && workPackage._links.children.length > 0;
+    const dateInputDisabled = isParent ? "disabled" : "";
+    const parentWarning = isParent ? `<div style="color: var(--vscode-errorForeground); margin-top: 5px; font-size: 0.9em;">⚠️ Dates are calculated automatically from sub-tasks and cannot be edited.</div>` : "";
+
+    const formatDateEu = (dateStr: string | null | undefined) => {
+        if (!dateStr) return '';
+        const match = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+        if (match) return `${match[3]}.${match[2]}.${match[1]}`;
+        return dateStr;
+    };
+
     return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -141,6 +152,12 @@ export class WorkPackageWebviewManager {
 
                 <div class="label">Priority:</div>
                 <div class="value">${priorityName}</div>
+
+                <div class="label">Start Date:</div>
+                <div class="value">${formatDateEu(workPackage.startDate) || 'Not set'}</div>
+
+                <div class="label">Deadline:</div>
+                <div class="value">${formatDateEu(workPackage.dueDate) || 'Not set'}</div>
 
                 <div class="label">Assignee:</div>
                 <div class="value">${assigneeName}</div>
@@ -198,6 +215,13 @@ export class WorkPackageWebviewManager {
             <select id="select-priority" class="form-control">
                  ${generateOptions(priorities, priorityName)}
             </select>
+
+            <div class="label">Start Date</div>
+            <input type="text" id="input-startDate" class="form-control" placeholder="DD.MM.YYYY" value="${formatDateEu(workPackage.startDate)}" ${dateInputDisabled}>
+
+            <div class="label">Deadline</div>
+            <input type="text" id="input-dueDate" class="form-control" placeholder="DD.MM.YYYY" value="${formatDateEu(workPackage.dueDate)}" ${dateInputDisabled}>
+            <div style="grid-column: 1 / -1;">${parentWarning}</div>
         </div>
 
         <div class="actions">

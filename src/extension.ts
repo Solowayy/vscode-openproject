@@ -124,6 +124,8 @@ interface WorkPackageUpdateData {
     statusId?: string;
     typeId?: string;
     priorityId?: string;
+    dueDate?: string | null;
+    startDate?: string | null;
 }
 
 // Commands
@@ -137,7 +139,13 @@ async function configureCommand(treeProvider: ProjectTreeProvider): Promise<void
     const apiKey = await promptApiKey();
     if (!apiKey) return;
 
-    await saveConfiguration(url, apiKey);
+    const gitlabURL = await promptGitLabUrl();
+    if(!gitlabURL) return;
+
+    const gitlabToken = await promptGitLabToken();
+    if(!gitlabToken) return;
+
+    await saveConfiguration(url, apiKey, gitlabURL, gitlabToken);
 
     const success = await apiClient.initialize();
     if (success) {
@@ -185,6 +193,23 @@ async function createWorkPackageCommand(treeProvider: ProjectTreeProvider, treeI
 
     const description = await promptDescription();
     const assignee = await pickAssignee();
+    let startDate: string | undefined;
+    let dueDate: string | undefined;
+
+    if (options.typeName.toLowerCase() === "milestone") {
+        const date = await promptDueDate();
+        if (date === undefined) return;
+        startDate = date || undefined;
+        dueDate = date || undefined;
+    } else {
+        const start = await promptStartDate();
+        if (start === undefined) return;
+        startDate = start || undefined;
+
+        const due = await promptDueDate(startDate);
+        if (due === undefined) return;
+        dueDate = due || undefined;
+    }
 
     const created = await apiClient.createWorkPackage({
         projectId: project.id,
@@ -194,6 +219,8 @@ async function createWorkPackageCommand(treeProvider: ProjectTreeProvider, treeI
         subject: subject.trim(),
         description: description?.trim(),
         assignee: assignee ? { id: assignee.id, href: assignee.href } : undefined,
+        startDate: startDate,
+        dueDate: dueDate,
     });
 
     if (created) {
@@ -229,6 +256,23 @@ async function createChildWorkPackageCommand(treeProvider: ProjectTreeProvider, 
 
     const description = await promptDescription();
     const assignee = await pickAssignee();
+    let startDate: string | undefined;
+    let dueDate: string | undefined;
+
+    if (options.typeName.toLowerCase() === "milestone") {
+        const date = await promptDueDate();
+        if (date === undefined) return;
+        startDate = date || undefined;
+        dueDate = date || undefined;
+    } else {
+        const start = await promptStartDate();
+        if (start === undefined) return;
+        startDate = start || undefined;
+
+        const due = await promptDueDate(startDate);
+        if (due === undefined) return;
+        dueDate = due || undefined;
+    }
 
     const created = await apiClient.createWorkPackage({
         projectId: project.id,
@@ -239,6 +283,8 @@ async function createChildWorkPackageCommand(treeProvider: ProjectTreeProvider, 
         description: description?.trim(),
         assignee: assignee ? { id: assignee.id, href: assignee.href } : undefined,
         parentId: parentWorkPackage.id,
+        startDate: startDate,
+        dueDate: dueDate,
     });
 
     if (created) {
@@ -357,7 +403,7 @@ async function pickProject(): Promise<Project | undefined> {
 }
 
 // Fetches type/status/priority options and prompts the user to select each
-async function fetchWorkPackageOptions(projectId: number): Promise<{ typeId: number; statusId: number; priorityId: number } | undefined> {
+async function fetchWorkPackageOptions(projectId: number): Promise<{ typeId: number; typeName: string; statusId: number; priorityId: number } | undefined> {
 
     const [types, statuses, priorities] = await Promise.all([
         apiClient.getTypes(projectId),
@@ -385,6 +431,7 @@ async function fetchWorkPackageOptions(projectId: number): Promise<{ typeId: num
 
     return {
         typeId: selectedType.id,
+        typeName: selectedType.label,
         statusId: selectedStatus.id,
         priorityId: selectedPriority.id,
     };
@@ -430,6 +477,91 @@ async function promptDescription(): Promise<string | undefined> {
 
 }
 
+// Date block
+
+// Parse input from user
+function parseDateInput(v: string | undefined): string | null {
+    if (!v) return null;
+    v = v.trim();
+    if (v.toLowerCase() === 't' || v.toLowerCase() === 'today') {
+        const today = new Date();
+        const yyyy = today.getFullYear();
+        const mm = String(today.getMonth() + 1).padStart(2, '0');
+        const dd = String(today.getDate()).padStart(2, '0');
+        return `${yyyy}-${mm}-${dd}`;
+    }
+    
+    const euMatch = v.match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{4})$/);
+    if (euMatch) {
+        const dd = euMatch[1].padStart(2, '0');
+        const mm = euMatch[2].padStart(2, '0');
+        const yyyy = euMatch[3];
+        return `${yyyy}-${mm}-${dd}`;
+    }
+
+    const isoMatch = v.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+    if (isoMatch) {
+        const yyyy = isoMatch[1];
+        const mm = isoMatch[2].padStart(2, '0');
+        const dd = isoMatch[3].padStart(2, '0');
+        return `${yyyy}-${mm}-${dd}`;
+    }
+
+    return null;
+}
+
+
+function formatToEuropean(yyyyMMdd: string): string {
+    const match = yyyyMMdd.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (match) {
+        return `${match[3]}.${match[2]}.${match[1]}`;
+    }
+    return yyyyMMdd;
+}
+
+// Prompts user to enter an optional start date
+async function promptStartDate(): Promise<string | null | undefined> {
+    const value = await vscode.window.showInputBox({
+        prompt: "Enter start date (DD.MM.YYYY or YYYY-MM-DD). Leave empty for none. Type 'T' or 'today' for today.",
+        placeHolder: "e.g. 20.05.2026, T, or today",
+        validateInput: (v) => {
+            if (!v) return null;
+            if (!parseDateInput(v)) return "Must be in DD.MM.YYYY or YYYY-MM-DD format, 'T', or 'today'";
+            return null;
+        }
+    });
+    
+    if (value === undefined) return undefined; // Escaped
+    if (value.trim() === "") return null; // Skipped
+    
+    return parseDateInput(value);
+}
+
+// Prompts user to enter an optional deadline
+async function promptDueDate(startDate?: string | null): Promise<string | null | undefined> {
+    const value = await vscode.window.showInputBox({
+        prompt: "Enter deadline (DD.MM.YYYY or YYYY-MM-DD). Leave empty for none. Type 'T' or 'today' for today.",
+        placeHolder: "e.g. 31.12.2026, T, or today",
+        validateInput: (v) => {
+            if (!v) return null;
+            
+            const parsed = parseDateInput(v);
+            if (!parsed) return "Must be in DD.MM.YYYY or YYYY-MM-DD format, 'T', or 'today'";
+
+            if (startDate && parsed < startDate) {
+                return `Deadline cannot be before start date (${formatToEuropean(startDate)})`;
+            }
+
+            return null;
+        }
+    });
+    
+    if (value === undefined) return undefined; // Escaped
+    if (value.trim() === "") return null; // Skipped
+
+    return parseDateInput(value);
+}
+
 // Prompts user to enter the OpenProject server URL
 async function promptUrl(): Promise<string | undefined> {
 
@@ -443,14 +575,13 @@ async function promptUrl(): Promise<string | undefined> {
             return null;
         },
     });
-
 }
 
 // Prompts user to enter their API key
 async function promptApiKey(): Promise<string | undefined> {
 
     return vscode.window.showInputBox({
-        prompt: "Enter your API Key",
+        prompt: "Enter your OpenProject API Key",
         password: true,
         value: vscode.workspace.getConfiguration("openproject").get("apiKey"),
         validateInput: (value) => (!value ? "API Key cannot be empty" : null),
@@ -518,5 +649,5 @@ async function saveConfiguration(url: string, apiKey: string): Promise<void> {
     const config = vscode.workspace.getConfiguration("openproject");
     await config.update("url", url, vscode.ConfigurationTarget.Global);
     await config.update("apiKey", apiKey, vscode.ConfigurationTarget.Global);
-
+    
 }

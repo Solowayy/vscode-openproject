@@ -5,6 +5,7 @@ import { GitLabMR, MrStateCache, MrWpLink} from "../api/gitlabTypes";
 
 const STATUS_IN_PROGRESS = "7";
 const STATUS_IN_TESTING  = "9";
+const STATUS_CLOSED  = "12";
 
 const DEF_POLL_INTERVAL_MS = 60_000;
 
@@ -105,7 +106,7 @@ export class MrMonitorService implements vscode.Disposable {
         if(currentState === "opened"){
             await this.trasitionWp(wpId, STATUS_IN_PROGRESS, mr, "opened");
         }else if(currentState === "merged"){
-            await this.trasitionWp(wpId, STATUS_IN_TESTING, mr, "merged");
+            await this.trasitionWp(wpId, STATUS_CLOSED, mr, "merged");
         }
     }
 
