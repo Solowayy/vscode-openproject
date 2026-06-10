@@ -5,7 +5,10 @@ import { apiClient } from "./api/apiClient";
 import { WorkPackage, Project } from "./api/types";
 import { WorkPackageWebviewManager } from "./views/workPackageWebview";
 import { gitLabClient } from "./api/gitlabClient";
-import { MrMonitorService } from "./services/mrMonitorService";
+import { gitHubClient } from "./api/githubClient";
+import { PrMonitorService } from "./services/prMonitorService";
+// import { MrMonitorService } from "./services/mrMonitorService";
+
 
 // Entry Point
 
@@ -41,9 +44,9 @@ export async function activate(context: vscode.ExtensionContext) {
         })
     );
 
-    // GitLab MR Monitor
-    const mrMonitor = new MrMonitorService(context);
-    context.subscriptions.push(mrMonitor);
+    // Unified PR / Mr Monitor
+    const prMonitor = new PrMonitorService(context, [gitLabClient, gitHubClient]);
+    context.subscriptions.push(prMonitor);
 
     context.subscriptions.push(
         vscode.commands.registerCommand("openproject.configureGitLab", async () => {
@@ -87,26 +90,38 @@ export async function activate(context: vscode.ExtensionContext) {
             const ok = await gitLabClient.initialize();
             if (ok) {
                 vscode.window.showInformationMessage("GitLab configured successfully!");
-                mrMonitor.start();
+                prMonitor.start();
             } else {
                 vscode.window.showErrorMessage("Failed to connect to GitLab");
             }
         }),
-        vscode.commands.registerCommand("openproject.mrMonitor.pollNow", () => mrMonitor.pollNow()),
-        vscode.commands.registerCommand("openproject.mrMonitor.stop", () => {
-            mrMonitor.stop();
-            vscode.window.showInformationMessage("MR monitor stopped");
+        vscode.commands.registerCommand("openproject.configureGitHub", async () => {
+            // get token, owner, repo fro user and save as in gitlab
+            // TODO
+            const ok = await gitHubClient.initialize();
+            if (ok) {
+                vscode.window.showInformationMessage("GitHub configured successfully!")
+                prMonitor.start();
+            } else {
+                vscode.window.showErrorMessage("Failed to connect to GitHub");
+            }
         }),
-        vscode.commands.registerCommand("openproject.mrMonitor.start", () => {
-            mrMonitor.start();
-            vscode.window.showInformationMessage("MR monitor started");
+        vscode.commands.registerCommand("openproject.prMonitor.pollNow", () => prMonitor.pollNow()),
+        vscode.commands.registerCommand("openproject.prMonitor.stop", () => {
+            prMonitor.stop();
+            vscode.window.showInformationMessage("PR monitor stopped");
+        }),
+        vscode.commands.registerCommand("openproject.prMonitor.start", () => {
+            prMonitor.start();
+            vscode.window.showInformationMessage("PR monitor started");
         }),
     );
 
-    // Auto-start GitLab monitor if already configured
-    gitLabClient.initialize().then(ok => {
-        if (ok) { mrMonitor.start(); }
-    });
+    // Auto-start monitor if already configured
+    Promise.allSettled([
+        gitLabClient.initialize(),
+        gitHubClient.initialize(),
+    ]).then(() => { prMonitor.start(); });
 
     autoInitializeIfConfigured(treeProvider);
 
@@ -139,13 +154,14 @@ async function configureCommand(treeProvider: ProjectTreeProvider): Promise<void
     const apiKey = await promptApiKey();
     if (!apiKey) return;
 
-    const gitlabURL = await promptGitLabUrl();
-    if(!gitlabURL) return;
+    // const gitlabURL = await promptGitLabUrl();
+    // if(!gitlabURL) return;
 
-    const gitlabToken = await promptGitLabToken();
-    if(!gitlabToken) return;
+    // const gitlabToken = await promptGitLabToken();
+    // if(!gitlabToken) return;
 
-    await saveConfiguration(url, apiKey, gitlabURL, gitlabToken);
+    // await saveConfiguration(url, apiKey, gitlabURL, gitlabToken);
+    await saveConfiguration(url, apiKey);
 
     const success = await apiClient.initialize();
     if (success) {
