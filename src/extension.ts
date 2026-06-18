@@ -15,7 +15,7 @@ import { PrMonitorService } from "./services/prMonitorService";
 export async function activate(context: vscode.ExtensionContext) {
 
     console.log("OpenProject extension activated");
-
+    
     const treeProvider = new ProjectTreeProvider();
 
     const treeView = vscode.window.createTreeView("openproject.projectsView", {
@@ -69,7 +69,7 @@ export async function activate(context: vscode.ExtensionContext) {
                 validateInput: (v) => (!v ? "Token cannot be empty" : null),
             });
             if (!token) return;
-
+            
             const projectIdStr = await vscode.window.showInputBox({
                 prompt: "Enter GitLab Project ID (numeric)",
                 placeHolder: "e.g. 12345",
@@ -89,42 +89,69 @@ export async function activate(context: vscode.ExtensionContext) {
 
             const ok = await gitLabClient.initialize();
             if (ok) {
-                vscode.window.showInformationMessage("GitLab configured successfully!");
+                vscode.window.showInformationMessage("OpentProject: GitLab configured successfully!");
                 prMonitor.start();
             } else {
-                vscode.window.showErrorMessage("Failed to connect to GitLab");
+                vscode.window.showErrorMessage("OpentProject: OpentProject: Failed to connect to GitLab");
             }
         }),
+
         vscode.commands.registerCommand("openproject.configureGitHub", async () => {
-            // get token, owner, repo fro user and save as in gitlab
-            // TODO
+            // get token, owner, repo for user and save as in gitlab
+            const token = await vscode.window.showInputBox({
+                prompt: "Enter your GitHub Personal Access Token",
+                password: true,
+                value: vscode.workspace.getConfiguration("openproject").get("github.token"),
+                validateInput: (v) => (!v ? "Token cannot be empty" : null),
+            });
+            if (!token) return;
+            
+            const url = await vscode.window.showInputBox({
+                prompt: "Enter your repo URL",
+                placeHolder: "https://github.com/owner/repo-name",
+                value: vscode.workspace.getConfiguration("openproject").get("github.repo"),
+                validateInput: (v) => (!v ? "Repo URL cannot be empty" : null),
+            });
+            if(!url) return;
+        
+            const repo = getRepoFromUrl(url);
+            const owner = getOwnerFormURL(url);
+            if(!owner) return;
+
+            const cfg = vscode.workspace.getConfiguration("openproject");
+            await cfg.update("github.repo", owner, vscode.ConfigurationTarget.Global);
+            await cfg.update("github.token", token, vscode.ConfigurationTarget.Global);
+            await cfg.update("github.owner", repo, vscode.ConfigurationTarget.Global);
+
             const ok = await gitHubClient.initialize();
             if (ok) {
-                vscode.window.showInformationMessage("GitHub configured successfully!")
+                vscode.window.showInformationMessage("OpentProject: GitHub configured successfully!");
                 prMonitor.start();
             } else {
-                vscode.window.showErrorMessage("Failed to connect to GitHub");
+                vscode.window.showErrorMessage("OpentProject: Failed to connect to GitHub");
             }
         }),
+
         vscode.commands.registerCommand("openproject.prMonitor.pollNow", () => prMonitor.pollNow()),
+
         vscode.commands.registerCommand("openproject.prMonitor.stop", () => {
             prMonitor.stop();
-            vscode.window.showInformationMessage("PR monitor stopped");
+            vscode.window.showInformationMessage("OpentProject: PR monitor stopped");
         }),
+
         vscode.commands.registerCommand("openproject.prMonitor.start", () => {
             prMonitor.start();
-            vscode.window.showInformationMessage("PR monitor started");
+            vscode.window.showInformationMessage("OpentProject: PR monitor started");
         }),
     );
 
     // Auto-start monitor if already configured
     Promise.allSettled([
-        gitLabClient.initialize(),
         gitHubClient.initialize(),
+        gitLabClient.initialize(),
     ]).then(() => { prMonitor.start(); });
 
     autoInitializeIfConfigured(treeProvider);
-
 }
 
 export function deactivate() {
@@ -168,7 +195,7 @@ async function configureCommand(treeProvider: ProjectTreeProvider): Promise<void
         vscode.window.showInformationMessage("OpenProject configured successfully!");
         treeProvider.refresh();
     } else {
-        vscode.window.showErrorMessage("Failed to connect to OpenProject");
+        vscode.window.showErrorMessage("OpentProject: Failed to connect to OpenProject");
     }
 
 }
@@ -176,7 +203,7 @@ async function configureCommand(treeProvider: ProjectTreeProvider): Promise<void
 // Refreshes the tree view
 function refreshCommand(treeProvider: ProjectTreeProvider): void {
 
-    vscode.window.showInformationMessage("Refreshing data...");
+    vscode.window.showInformationMessage("OpentProject: Refreshing data...");
     treeProvider.refresh();
 
 }
@@ -187,7 +214,7 @@ async function openWorkPackageCommand(context: vscode.ExtensionContext, workPack
     const fullWorkPackage = await apiClient.getWorkPackage(workPackage.id);
 
     if (!fullWorkPackage) {
-        vscode.window.showErrorMessage("Failed to load work package");
+        vscode.window.showErrorMessage("OpentProject: Failed to load work package");
         return;
     }
 
@@ -240,10 +267,10 @@ async function createWorkPackageCommand(treeProvider: ProjectTreeProvider, treeI
     });
 
     if (created) {
-        vscode.window.showInformationMessage(`Work package "${subject}" created!`);
+        vscode.window.showInformationMessage(`OpentProject: Work package "${subject}" created!`);
         treeProvider.refresh();
     } else {
-        vscode.window.showErrorMessage("Failed to create work package");
+        vscode.window.showErrorMessage("OpentProject: Failed to create work package");
     }
 
 }
@@ -252,7 +279,7 @@ async function createWorkPackageCommand(treeProvider: ProjectTreeProvider, treeI
 async function createChildWorkPackageCommand(treeProvider: ProjectTreeProvider, treeItem?: ProjectTreeItem): Promise<void> {
 
     if (!treeItem?.workPackage) {
-        vscode.window.showErrorMessage("Please select a parent task first");
+        vscode.window.showErrorMessage("OpentProject: Please select a parent task first");
         return;
     }
 
@@ -260,7 +287,7 @@ async function createChildWorkPackageCommand(treeProvider: ProjectTreeProvider, 
     const project = treeItem.parentProject ?? treeItem.project;
 
     if (!project) {
-        vscode.window.showErrorMessage("Could not determine project context");
+        vscode.window.showErrorMessage("OpentProject: Could not determine project context");
         return;
     }
 
@@ -304,10 +331,10 @@ async function createChildWorkPackageCommand(treeProvider: ProjectTreeProvider, 
     });
 
     if (created) {
-        vscode.window.showInformationMessage(`Child task "${subject}" created under #${parentWorkPackage.id}`);
+        vscode.window.showInformationMessage(`OpentProject: Child task "${subject}" created under #${parentWorkPackage.id}`);
         treeProvider.refresh();
     } else {
-        vscode.window.showErrorMessage("Failed to create child work package");
+        vscode.window.showErrorMessage("OpentProject: Failed to create child work package");
     }
 }
 
@@ -319,18 +346,18 @@ async function updateWorkPackageCommand(
 ): Promise<boolean> {
 
     if (!workPackageId) {
-        vscode.window.showErrorMessage("Work package ID is required");
+        vscode.window.showErrorMessage("OpentProject: Work package ID is required");
         return false;
     }
 
     const success = await apiClient.updateWorkPackage(workPackageId, updateData);
 
     if (success) {
-        vscode.window.showInformationMessage(`Work package #${workPackageId} updated successfully!`);
+        vscode.window.showInformationMessage(`OpentProject: Work package #${workPackageId} updated successfully!`);
         treeProvider.refresh();
         return true;
     } else {
-        vscode.window.showErrorMessage(`Failed to update work package #${workPackageId}`);
+        vscode.window.showErrorMessage(`OpentProject: Failed to update work package #${workPackageId}`);
         return false;
     }
 
@@ -370,7 +397,7 @@ async function selectVisibleProjectsCommand(treeProvider: ProjectTreeProvider): 
     const projects = await apiClient.getProjects();
 
     if (projects.length === 0) {
-        vscode.window.showWarningMessage("No projects available");
+        vscode.window.showWarningMessage("OpentProject: No projects available");
         return;
     }
 
@@ -397,7 +424,41 @@ async function selectVisibleProjectsCommand(treeProvider: ProjectTreeProvider): 
 
 }
 
-// UI Helpers
+// Helpers
+
+// Parse gitHub repo URL and gets owner name
+function getOwnerFormURL(url : string) : string | null{
+    try {
+        const parsedURL = new URL(url);
+        const pathParts = parsedURL.pathname.split('/').filter(Boolean);
+        
+        if(pathParts.length > 0){
+            return pathParts[0];
+        }
+        
+        return null;
+    } catch(error) {
+        console.error("Failed to parse GitHub url for owner", error);
+        return null;
+    }
+}
+
+// Parse gitHub repo URL and gets repo name
+function getRepoFromUrl(url : string) : string | null{
+    try {
+        const parsedURL = new URL(url);
+        const pathParts = parsedURL.pathname.split('/').filter(Boolean);
+        
+        if(pathParts.length >= 1){
+            return pathParts[1];
+        }
+        
+        return null;
+    } catch(error) {
+        console.error("Failed to parse GitHub url for repo", error);
+        return null;
+    }
+}
 
 // Prompts user to select a project from the list
 async function pickProject(): Promise<Project | undefined> {
@@ -405,7 +466,7 @@ async function pickProject(): Promise<Project | undefined> {
     const projects = await apiClient.getProjects();
 
     if (projects.length === 0) {
-        vscode.window.showWarningMessage("No projects available");
+        vscode.window.showWarningMessage("OpentProject: No projects available");
         return undefined;
     }
 

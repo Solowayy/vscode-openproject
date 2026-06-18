@@ -21,7 +21,7 @@ export class GitHubClient implements PrSource {
             baseURL: GITHUB_API,
             headers: {
                 "Content-Type": "apllication/json",
-                "Accept": "application/vnd.github+json",
+                "Accept": "apllication/vnd.github+json",
                 "X-GitHub-Api-Version": "2022-11-28",
             },
         });
@@ -47,13 +47,27 @@ export class GitHubClient implements PrSource {
             return true;
         }catch (err: any){
             const status = err.response?.status;
-
+            //------------
+        const cfg    = vscode.workspace.getConfiguration("openproject");
+        const token  = cfg.get<string>("github.token");
+        const owner  = cfg.get<string>("github.owner");
+        const repo   = cfg.get<string>("github.repo");
+            //----------------
             if(status === 401){
                 vscode.window.showErrorMessage("GitHub: invalid token");
+                console.log("GitHub: invalid token");
             } else if(status === 404){
                 vscode.window.showErrorMessage("GitHub: repository not found - check owner/repo settings");
+                console.log("GitHub: repository not found - check owner/repo settings");
+            } else if(!err.response){
+                vscode.window.showErrorMessage(`GitHub: network error - ${err.message}`);
+                console.log(`Owner - ${owner}`);
+                console.log(`Repo - ${repo}`);
+                console.log(`token - ${token}`);
+                console.log(`GitHub: network error - ${err.message}`);
             } else {
                 vscode.window.showErrorMessage(`GitHub: connection failed (${status})`);
+                console.log(`GitHub: connection failed (${status})`);
             }
             return false;
         }

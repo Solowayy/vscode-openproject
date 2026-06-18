@@ -6,7 +6,7 @@
   "displayName": "OpenProject Rocnikovy",
   "description": "OpenProject integration for VSCode",
   "version": "0.1.0",
-  "publisher": "Soloway",
+  "publisher": "Solowayy",
   "engines": {
     "vscode": "^1.85.0"
   },
@@ -56,6 +56,21 @@
           "default": 60,
           "minimum": 10,
           "description": "How often (in seconds) the MR monitor polls GitLab for changes"
+        },
+        "openproject.github.owner": {
+          "type": "string",
+          "default": "",
+          "description": "Owner of repo name"
+        },
+        "openproject.github.repo": {
+          "type": "string",
+          "default": "",
+          "description": "Name of repo"
+        },
+        "openproject.github.token": {
+          "type": "string",
+          "default": "",
+          "description": "GitHub Personal Access Token with 'api' scope"
         }
       }
     },
@@ -80,57 +95,62 @@
     "commands": [
       {
         "command": "openproject.configure",
-        "title": "Configure OpenProject",
+        "title": "OpenProject: Configure OpenProject",
         "icon": "$(settings-gear)"
       },
       {
         "command": "openproject.refresh",
-        "title": "Refresh",
+        "title": "OpenProject: Refresh",
         "icon": "$(refresh)"
       },
       {
         "command": "openproject.openWorkPackage",
-        "title": "Open Work Package"
+        "title": "OpenProject: Open Work Package"
       },
       {
         "command": "openproject.createWorkPackage",
-        "title": "Create Work Package",
+        "title": "OpenProject: Create Work Package",
         "icon": "$(add)"
       },
       {
         "command": "openproject.createChildWorkPackage",
-        "title": "Create Child Task",
+        "title": "OpenProject: Create Child Task",
         "icon": "$(add)"
       },
       {
         "command": "openproject.filterWorkPackage",
-        "title": "Filter",
+        "title": "OpenProject: Filter",
         "icon": "$(filter)"
       },
       {
         "command": "openproject.selectVisibleProjects",
-        "title": "Select Visible Projects",
+        "title": "OpenProject: Select Visible Projects",
         "icon": "$(checklist)"
       },
       {
         "command": "openproject.configureGitLab",
-        "title": "Configure GitLab",
+        "title": "OpenProject: Configure GitLab",
         "icon": "$(settings-gear)"
       },
       {
-        "command": "openproject.mrMonitor.pollNow",
-        "title": "Poll GitLab MRs Now",
+        "command": "openproject.prMonitor.pollNow",
+        "title": "OpenProject: Poll GitLab PRs Now",
         "icon": "$(sync)"
       },
       {
-        "command": "openproject.mrMonitor.start",
-        "title": "Start MR Monitor",
+        "command": "openproject.prMonitor.start",
+        "title": "OpenProject: Start PR Monitor",
         "icon": "$(play)"
       },
       {
-        "command": "openproject.mrMonitor.stop",
-        "title": "Stop MR Monitor",
+        "command": "openproject.prMonitor.stop",
+        "title": "OpenProject: Stop PR Monitor",
         "icon": "$(debug-stop)"
+      },
+      {
+        "command": "openproject.configureGitHub",
+        "title": "OpenProject: Configure GitHub",
+        "icon": "$(settings-gear)"
       }
     ],
     "menus": {

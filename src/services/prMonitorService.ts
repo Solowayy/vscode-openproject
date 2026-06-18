@@ -110,9 +110,10 @@ export class PrMonitorService implements vscode.Disposable {
             `${previousState ?? "new"} -> ${currentState} (WP #${wpId})`,
         );
 
-        if(currentState === "open"){
-            await this.transitionWp(wpId, STATUS_IN_PROGRESS, pr, "opened");
-        } else if(currentState === "merged"){
+        // if(currentState === "open"){
+        //     await this.transitionWp(wpId, STATUS_IN_PROGRESS, pr, "opened");
+        // } 
+        if(currentState === "merged"){
             await this.transitionWp(wpId, STATUS_CLOSED, pr, "merged");
         }
     }
