@@ -6,6 +6,7 @@
   const editContainer = document.getElementById("edit-container");
 
   // Buttons
+  const btnRefresh = document.getElementById("btn-refresh");
   const btnEdit = document.getElementById("btn-edit");
   const btnCancel = document.getElementById("btn-cancel");
   const btnSave = document.getElementById("btn-save");
@@ -20,6 +21,12 @@
   const inputStartDate = document.getElementById("input-startDate");
 
   // Event Listeners
+  if (btnRefresh) {
+    btnRefresh.addEventListener("click", () => {
+      vscode.postMessage({ command: "refresh" });
+    });
+  }
+
   if (btnEdit) {
     btnEdit.addEventListener("click", () => {
       toggleMode("edit");

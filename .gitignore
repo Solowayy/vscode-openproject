@@ -4,7 +4,7 @@ node_modules
 .vscode-test/
 *.vsix
 .vscode/settings.json
-
+src\test
 # OS files
 .DS_Store
 Thumbs.db
@@ -17,4 +17,4 @@ npm-debug.log*
 # Env files
 .env
 
-.out
+*.out

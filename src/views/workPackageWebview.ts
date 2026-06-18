@@ -3,10 +3,64 @@ import { WorkPackage } from "../api/types";
 import { apiClient } from "../api/apiClient";
 
 export class WorkPackageWebviewManager {
+  private readonly _panel: vscode.WebviewPanel;
+  private _workPackage: WorkPackage;
+  private _extensionUri: vscode.Uri;
+  private _disposables: vscode.Disposable[] = [];
+
+  private constructor(panel: vscode.WebviewPanel, workPackage: WorkPackage, extensionUri: vscode.Uri) {
+    this._panel = panel;
+    this._workPackage = workPackage;
+    this._extensionUri = extensionUri;
+
+    // Listen for when the panel is disposed
+    this._panel.onDidDispose(() => this.dispose(), null, this._disposables);
+
+    // Handle messages from the webview
+    this._panel.webview.onDidReceiveMessage(
+      async (message) => {
+        switch (message.command) {
+          case "refresh":
+            try {
+              const freshWP = await apiClient.getWorkPackage(this._workPackage.id);
+              if (freshWP) {
+                await this.update(this._extensionUri, freshWP);
+              }
+            } catch (e) {
+              console.error(e);
+            }
+            return;
+
+          case "save":
+            const success = await vscode.commands.executeCommand(
+              "openproject.updateWorkPackage",
+              this._workPackage.id,
+              message.data,
+            );
+
+            if (success) {
+              this._panel.webview.postMessage({ command: "updateSuccess" });
+
+              if (message.data.subject) {
+                this._panel.title = `#${this._workPackage.id} - ${message.data.subject}`;
+              }
+            } else {
+              this._panel.webview.postMessage({ command: "updateError" });
+            }
+            
+            return;
+        }
+      },
+      null,
+      this._disposables
+    );
+  }
+
   public static async createOrShow(
     extensionUri: vscode.Uri,
     workPackage: WorkPackage,
   ) {
+    // Create a new panel
     const panel = vscode.window.createWebviewPanel(
       "workPackageDetail",
       `#${workPackage.id} - ${workPackage.subject}`,
@@ -18,7 +72,13 @@ export class WorkPackageWebviewManager {
       },
     );
 
-    // const { apiClient } = require("../api/apiClient");
+    const manager = new WorkPackageWebviewManager(panel, workPackage, extensionUri);
+    await manager.update(extensionUri, workPackage);
+  }
+
+  public async update(extensionUri: vscode.Uri, workPackage: WorkPackage) {
+    this._workPackage = workPackage;
+    this._panel.title = `#${workPackage.id} - ${workPackage.subject}`;
 
     // Extract Project ID from _links.project.href (e.g. "/api/v3/projects/1")
     let projectId: number | undefined;
@@ -35,45 +95,25 @@ export class WorkPackageWebviewManager {
       apiClient.getPriorities()
     ]);
 
-    panel.webview.html = this.getHtmlForWebview(
-      panel.webview,
+    this._panel.webview.html = WorkPackageWebviewManager.getHtmlForWebview(
+      this._panel.webview,
       extensionUri,
       workPackage,
       types,
       statuses,
       priorities
     );
+  }
 
-    // Handle messages from the webview
-    panel.webview.onDidReceiveMessage(
-      async (message) => {
-        switch (message.command) {
-          case "save":
-            // Execute the updateWorkPackage command
-            const success = await vscode.commands.executeCommand(
-              "openproject.updateWorkPackage",
-              workPackage.id,
-              message.data,
-            );
+  public dispose() {
+    this._panel.dispose();
 
-            if (success) {
-              // Send success message back to webview to switch to view mode
-              panel.webview.postMessage({ command: "updateSuccess" });
-
-              // Update the panel title if subject changed
-              if (message.data.subject) {
-                panel.title = `#${workPackage.id} - ${message.data.subject}`;
-              }
-            } else {
-              // Send error message back to webview
-              panel.webview.postMessage({ command: "updateError" });
-            }
-            return;
-        }
-      },
-      undefined,
-      [],
-    );
+    while (this._disposables.length) {
+      const x = this._disposables.pop();
+      if (x) {
+        x.dispose();
+      }
+    }
   }
 
   private static getHtmlForWebview(
@@ -132,6 +172,7 @@ export class WorkPackageWebviewManager {
                     <span style="color: var(--vscode-descriptionForeground);">${typeName}</span>
                 </div>
                 <div class="actions">
+                    <button id="btn-refresh" class="btn btn-secondary" style="margin-right: 8px;">Refresh</button>
                     <button id="btn-edit" class="btn btn-primary">Edit</button>
                 </div>
             </div>
