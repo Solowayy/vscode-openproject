@@ -1,11 +1,66 @@
 import * as vscode from "vscode";
 import { WorkPackage } from "../api/types";
+import { apiClient } from "../api/apiClient";
 
 export class WorkPackageWebviewManager {
+  private readonly _panel: vscode.WebviewPanel;
+  private _workPackage: WorkPackage;
+  private _extensionUri: vscode.Uri;
+  private _disposables: vscode.Disposable[] = [];
+
+  private constructor(panel: vscode.WebviewPanel, workPackage: WorkPackage, extensionUri: vscode.Uri) {
+    this._panel = panel;
+    this._workPackage = workPackage;
+    this._extensionUri = extensionUri;
+
+    // Listen for when the panel is disposed
+    this._panel.onDidDispose(() => this.dispose(), null, this._disposables);
+
+    // Handle messages from the webview
+    this._panel.webview.onDidReceiveMessage(
+      async (message) => {
+        switch (message.command) {
+          case "refresh":
+            try {
+              const freshWP = await apiClient.getWorkPackage(this._workPackage.id);
+              if (freshWP) {
+                await this.update(this._extensionUri, freshWP);
+              }
+            } catch (e) {
+              console.error(e);
+            }
+            return;
+
+          case "save":
+            const success = await vscode.commands.executeCommand(
+              "openproject.updateWorkPackage",
+              this._workPackage.id,
+              message.data,
+            );
+
+            if (success) {
+              this._panel.webview.postMessage({ command: "updateSuccess" });
+
+              if (message.data.subject) {
+                this._panel.title = `#${this._workPackage.id} - ${message.data.subject}`;
+              }
+            } else {
+              this._panel.webview.postMessage({ command: "updateError" });
+            }
+            
+            return;
+        }
+      },
+      null,
+      this._disposables
+    );
+  }
+
   public static async createOrShow(
     extensionUri: vscode.Uri,
     workPackage: WorkPackage,
   ) {
+    // Create a new panel
     const panel = vscode.window.createWebviewPanel(
       "workPackageDetail",
       `#${workPackage.id} - ${workPackage.subject}`,
@@ -17,7 +72,13 @@ export class WorkPackageWebviewManager {
       },
     );
 
-    const { apiClient } = require("../api/apiClient");
+    const manager = new WorkPackageWebviewManager(panel, workPackage, extensionUri);
+    await manager.update(extensionUri, workPackage);
+  }
+
+  public async update(extensionUri: vscode.Uri, workPackage: WorkPackage) {
+    this._workPackage = workPackage;
+    this._panel.title = `#${workPackage.id} - ${workPackage.subject}`;
 
     // Extract Project ID from _links.project.href (e.g. "/api/v3/projects/1")
     let projectId: number | undefined;
@@ -34,45 +95,25 @@ export class WorkPackageWebviewManager {
       apiClient.getPriorities()
     ]);
 
-    panel.webview.html = this.getHtmlForWebview(
-      panel.webview,
+    this._panel.webview.html = WorkPackageWebviewManager.getHtmlForWebview(
+      this._panel.webview,
       extensionUri,
       workPackage,
       types,
       statuses,
       priorities
     );
+  }
 
-    // Handle messages from the webview
-    panel.webview.onDidReceiveMessage(
-      async (message) => {
-        switch (message.command) {
-          case "save":
-            // Execute the updateWorkPackage command
-            const success = await vscode.commands.executeCommand(
-              "openproject.updateWorkPackage",
-              workPackage.id,
-              message.data,
-            );
+  public dispose() {
+    this._panel.dispose();
 
-            if (success) {
-              // Send success message back to webview to switch to view mode
-              panel.webview.postMessage({ command: "updateSuccess" });
-
-              // Update the panel title if subject changed
-              if (message.data.subject) {
-                panel.title = `#${workPackage.id} - ${message.data.subject}`;
-              }
-            } else {
-              // Send error message back to webview
-              panel.webview.postMessage({ command: "updateError" });
-            }
-            return;
-        }
-      },
-      undefined,
-      [],
-    );
+    while (this._disposables.length) {
+      const x = this._disposables.pop();
+      if (x) {
+        x.dispose();
+      }
+    }
   }
 
   private static getHtmlForWebview(
@@ -102,6 +143,17 @@ export class WorkPackageWebviewManager {
       ).join('');
     };
 
+    const isParent = workPackage._links.children && workPackage._links.children.length > 0;
+    const dateInputDisabled = isParent ? "disabled" : "";
+    const parentWarning = isParent ? `<div style="color: var(--vscode-errorForeground); margin-top: 5px; font-size: 0.9em;">⚠️ Dates are calculated automatically from sub-tasks and cannot be edited.</div>` : "";
+
+    const formatDateEu = (dateStr: string | null | undefined) => {
+        if (!dateStr) return '';
+        const match = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+        if (match) return `${match[3]}.${match[2]}.${match[1]}`;
+        return dateStr;
+    };
+
     return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -120,6 +172,7 @@ export class WorkPackageWebviewManager {
                     <span style="color: var(--vscode-descriptionForeground);">${typeName}</span>
                 </div>
                 <div class="actions">
+                    <button id="btn-refresh" class="btn btn-secondary" style="margin-right: 8px;">Refresh</button>
                     <button id="btn-edit" class="btn btn-primary">Edit</button>
                 </div>
             </div>
@@ -137,10 +190,16 @@ export class WorkPackageWebviewManager {
                 
                 <div class="label">Status:</div>
                 <div class="value">${statusName}</div>
-                
+
                 <div class="label">Priority:</div>
                 <div class="value">${priorityName}</div>
-                
+
+                <div class="label">Start Date:</div>
+                <div class="value">${formatDateEu(workPackage.startDate) || 'Not set'}</div>
+
+                <div class="label">Deadline:</div>
+                <div class="value">${formatDateEu(workPackage.dueDate) || 'Not set'}</div>
+
                 <div class="label">Assignee:</div>
                 <div class="value">${assigneeName}</div>
             </div>
@@ -197,6 +256,13 @@ export class WorkPackageWebviewManager {
             <select id="select-priority" class="form-control">
                  ${generateOptions(priorities, priorityName)}
             </select>
+
+            <div class="label">Start Date</div>
+            <input type="text" id="input-startDate" class="form-control" placeholder="DD.MM.YYYY" value="${formatDateEu(workPackage.startDate)}" ${dateInputDisabled}>
+
+            <div class="label">Deadline</div>
+            <input type="text" id="input-dueDate" class="form-control" placeholder="DD.MM.YYYY" value="${formatDateEu(workPackage.dueDate)}" ${dateInputDisabled}>
+            <div style="grid-column: 1 / -1;">${parentWarning}</div>
         </div>
 
         <div class="actions">

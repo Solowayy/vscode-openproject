@@ -1,9 +1,12 @@
 {
+  "_moduleAliases": {
+    "vscode": "./src/test/mocks/vscode.ts"
+  },
   "name": "vscode-openproject",
   "displayName": "OpenProject Rocnikovy",
   "description": "OpenProject integration for VSCode",
   "version": "0.1.0",
-  "publisher": "Soloway",
+  "publisher": "Solowayy",
   "engines": {
     "vscode": "^1.85.0"
   },
@@ -24,6 +27,50 @@
           "type": "string",
           "default": "",
           "description": "API Key for OpenProject"
+        },
+        "openproject.visibleProjects": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "List of project names or IDs to display. Leave empty to display all projects"
+        },
+        "openproject.gitlab.url": {
+          "type": "string",
+          "default": "",
+          "description": "GitLab instance URL (e.g. https://gitlab.com)"
+        },
+        "openproject.gitlab.token": {
+          "type": "string",
+          "default": "",
+          "description": "GitLab Personal Access Token with 'api' scope"
+        },
+        "openproject.gitlab.projectId": {
+          "type": "number",
+          "default": 0,
+          "description": "Numeric GitLab project ID (found under Settings → General in GitLab)"
+        },
+        "openproject.gitlab.pollIntervalSeconds": {
+          "type": "number",
+          "default": 60,
+          "minimum": 10,
+          "description": "How often (in seconds) the MR monitor polls GitLab for changes"
+        },
+        "openproject.github.owner": {
+          "type": "string",
+          "default": "",
+          "description": "Owner of repo name"
+        },
+        "openproject.github.repo": {
+          "type": "string",
+          "default": "",
+          "description": "Name of repo"
+        },
+        "openproject.github.token": {
+          "type": "string",
+          "default": "",
+          "description": "GitHub Personal Access Token with 'api' scope"
         }
       }
     },
@@ -39,6 +86,7 @@
     "views": {
       "openproject-explorer": [
         {
+          "icon": "",
           "id": "openproject.projectsView",
           "name": "Projects"
         }
@@ -47,32 +95,62 @@
     "commands": [
       {
         "command": "openproject.configure",
-        "title": "Configure OpenProject",
+        "title": "OpenProject: Configure OpenProject",
         "icon": "$(settings-gear)"
       },
       {
         "command": "openproject.refresh",
-        "title": "Refresh",
+        "title": "OpenProject: Refresh",
         "icon": "$(refresh)"
       },
       {
         "command": "openproject.openWorkPackage",
-        "title": "Open Work Package"
+        "title": "OpenProject: Open Work Package"
       },
       {
         "command": "openproject.createWorkPackage",
-        "title": "Create Work Package",
+        "title": "OpenProject: Create Work Package",
         "icon": "$(add)"
       },
       {
         "command": "openproject.createChildWorkPackage",
-        "title": "Create Child Task",
+        "title": "OpenProject: Create Child Task",
         "icon": "$(add)"
       },
       {
         "command": "openproject.filterWorkPackage",
-        "title": "Filter",
+        "title": "OpenProject: Filter",
         "icon": "$(filter)"
+      },
+      {
+        "command": "openproject.selectVisibleProjects",
+        "title": "OpenProject: Select Visible Projects",
+        "icon": "$(checklist)"
+      },
+      {
+        "command": "openproject.configureGitLab",
+        "title": "OpenProject: Configure GitLab",
+        "icon": "$(settings-gear)"
+      },
+      {
+        "command": "openproject.prMonitor.pollNow",
+        "title": "OpenProject: Poll GitLab PRs Now",
+        "icon": "$(sync)"
+      },
+      {
+        "command": "openproject.prMonitor.start",
+        "title": "OpenProject: Start PR Monitor",
+        "icon": "$(play)"
+      },
+      {
+        "command": "openproject.prMonitor.stop",
+        "title": "OpenProject: Stop PR Monitor",
+        "icon": "$(debug-stop)"
+      },
+      {
+        "command": "openproject.configureGitHub",
+        "title": "OpenProject: Configure GitHub",
+        "icon": "$(settings-gear)"
       }
     ],
     "menus": {
@@ -88,9 +166,14 @@
           "group": "navigation@2"
         },
         {
-          "command": "openproject.configure",
+          "command": "openproject.selectVisibleProjects",
           "when": "view == openproject.projectsView",
           "group": "navigation@3"
+        },
+        {
+          "command": "openproject.configure",
+          "when": "view == openproject.projectsView",
+          "group": "navigation@4"
         }
       ],
       "view/item/context": [
@@ -113,14 +196,25 @@
     "watch": "tsc -watch -p ./",
     "pretest": "npm run compile && npm run lint",
     "lint": "eslint src --ext ts",
-    "test": "node ./out/test/runTest.js"
+    "test": "node ./out/test/runTest.js",
+    "test:unit": "tsc -p tsconfig.json && mocha"
   },
   "devDependencies": {
-    "@types/node": "^20.x",
+    "@types/axios-mock-adapter": "^1.9.0",
+    "@types/mocha": "^10.0.10",
+    "@types/nock": "^10.0.3",
+    "@types/node": "^20.19.39",
     "@types/vscode": "^1.85.0",
     "@typescript-eslint/eslint-plugin": "^6.x",
     "@typescript-eslint/parser": "^6.x",
+    "axios-mock-adapter": "^2.1.0",
     "eslint": "^8.x",
+    "mocha": "^11.7.5",
+    "module-alias": "^2.3.4",
+    "nock": "^14.0.13",
+    "ts-node": "^10.9.2",
+    "tsconfig-paths": "^4.2.0",
+    "tsx": "^4.21.0",
     "typescript": "^5.3.0"
   },
   "dependencies": {
