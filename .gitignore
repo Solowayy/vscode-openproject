@@ -5,6 +5,7 @@ node_modules
 *.vsix
 .vscode/settings.json
 src\test
+
 # OS files
 .DS_Store
 Thumbs.db
